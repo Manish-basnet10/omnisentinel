@@ -1,0 +1,127 @@
+{
+  "phase": 7,
+  "model": "XGBoost",
+  "seed": 42,
+  "xgb_version": "3.2.0",
+  "binary": {
+    "best_iteration": 14,
+    "fit_time_s": 5.55,
+    "val": {
+      "accuracy": 0.9828,
+      "precision_macro": 0.4943,
+      "precision_weighted": 0.9775,
+      "recall_macro": 0.497,
+      "recall_weighted": 0.9828,
+      "f1_macro": 0.4957,
+      "f1_weighted": 0.9801,
+      "roc_auc": 0.7459,
+      "avg_precision": 0.0318
+    },
+    "test": {
+      "accuracy": 0.7544,
+      "precision_macro": 0.8268,
+      "precision_weighted": 0.8323,
+      "recall_macro": 0.7623,
+      "recall_weighted": 0.7544,
+      "f1_macro": 0.7435,
+      "f1_weighted": 0.7418,
+      "roc_auc": 0.867,
+      "avg_precision": 0.8933,
+      "per_class_f1": {
+        "BENIGN": 0.798,
+        "ATTACK": 0.689
+      }
+    }
+  },
+  "multiclass": {
+    "best_iteration": 153,
+    "fit_time_s": 93.0,
+    "n_train_classes": 12,
+    "val": {
+      "accuracy": 0.9886,
+      "precision_macro": 0.1648,
+      "precision_weighted": 0.9776,
+      "recall_macro": 0.1666,
+      "recall_weighted": 0.9886,
+      "f1_macro": 0.1657,
+      "f1_weighted": 0.983
+    },
+    "test": {
+      "accuracy": 0.4829,
+      "precision_macro": 0.05,
+      "precision_weighted": 0.2415,
+      "recall_macro": 0.1,
+      "recall_weighted": 0.4829,
+      "f1_macro": 0.0667,
+      "f1_weighted": 0.322,
+      "per_class_f1": {
+        "BENIGN": 0.6667,
+        "DDoS": 0.0,
+        "PortScan": 0.0
+      },
+      "note": "DDoS+PortScan absent from train \u2014 static model cannot classify unseen attack types."
+    },
+    "top15_features_gain": [
+      {
+        "feature": "Packet Length Variance",
+        "gain": 8072.9849
+      },
+      {
+        "feature": "Bwd Packet Length Max",
+        "gain": 3269.6172
+      },
+      {
+        "feature": "Bwd Packet Length Mean",
+        "gain": 2864.7827
+      },
+      {
+        "feature": "Active Std",
+        "gain": 2250.7849
+      },
+      {
+        "feature": "Active Min",
+        "gain": 1206.3289
+      },
+      {
+        "feature": "Destination Port",
+        "gain": 1082.408
+      },
+      {
+        "feature": "byte_fwd_bwd_ratio",
+        "gain": 980.2657
+      },
+      {
+        "feature": "FIN Flag Count",
+        "gain": 967.1732
+      },
+      {
+        "feature": "log1p_bwd_pkts",
+        "gain": 906.852
+      },
+      {
+        "feature": "Init_Win_bytes_backward",
+        "gain": 812.0804
+      },
+      {
+        "feature": "Bwd IAT Mean",
+        "gain": 781.6466
+      },
+      {
+        "feature": "Bwd IAT Min",
+        "gain": 598.8742
+      },
+      {
+        "feature": "log1p_idle_mean",
+        "gain": 568.8436
+      },
+      {
+        "feature": "Bwd IAT Std",
+        "gain": 461.6342
+      },
+      {
+        "feature": "pkt_fwd_bwd_ratio",
+        "gain": 354.3047
+      }
+    ]
+  }
+}

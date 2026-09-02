@@ -1,0 +1,158 @@
+{
+  "phase": 1,
+  "phase_name": "Dataset Discovery & Inspection",
+  "dataset": "CIC-IDS2017 MachineLearningCSV",
+  "dataset_path": "/Users/manishbasnet/Desktop/omnisentinel/SIH DATA SET",
+  "total_files": 8,
+  "total_rows": 2830743,
+  "total_columns": 79,
+  "total_size_mb": 843.4,
+  "total_nan": 1358,
+  "total_inf": 4376,
+  "total_duplicates": 256479,
+  "duplicate_rate_pct": 9.06,
+  "num_classes": 15,
+  "files": [
+    {
+      "file": "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+      "day": "Friday",
+      "order": 8,
+      "size_mb": 73.5,
+      "rows": 225745,
+      "nan": 4,
+      "inf": 64,
+      "duplicates": 2633
+    },
+    {
+      "file": "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+      "day": "Friday",
+      "order": 7,
+      "size_mb": 73.3,
+      "rows": 286467,
+      "nan": 15,
+      "inf": 727,
+      "duplicates": 72353
+    },
+    {
+      "file": "Friday-WorkingHours-Morning.pcap_ISCX.csv",
+      "day": "Friday",
+      "order": 6,
+      "size_mb": 55.6,
+      "rows": 191033,
+      "nan": 28,
+      "inf": 216,
+      "duplicates": 6888
+    },
+    {
+      "file": "Monday-WorkingHours.pcap_ISCX.csv",
+      "day": "Monday",
+      "order": 1,
+      "size_mb": 168.7,
+      "rows": 529918,
+      "nan": 64,
+      "inf": 810,
+      "duplicates": 26935
+    },
+    {
+      "file": "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv",
+      "day": "Thursday",
+      "order": 5,
+      "size_mb": 79.2,
+      "rows": 288602,
+      "nan": 18,
+      "inf": 396,
+      "duplicates": 35630
+    },
+    {
+      "file": "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+      "day": "Thursday",
+      "order": 4,
+      "size_mb": 49.6,
+      "rows": 170366,
+      "nan": 20,
+      "inf": 250,
+      "duplicates": 6066
+    },
+    {
+      "file": "Tuesday-WorkingHours.pcap_ISCX.csv",
+      "day": "Tuesday",
+      "order": 2,
+      "size_mb": 128.8,
+      "rows": 445909,
+      "nan": 201,
+      "inf": 327,
+      "duplicates": 24065
+    },
+    {
+      "file": "Wednesday-workingHours.pcap_ISCX.csv",
+      "day": "Wednesday",
+      "order": 3,
+      "size_mb": 214.7,
+      "rows": 692703,
+      "nan": 1008,
+      "inf": 1586,
+      "duplicates": 81909
+    }
+  ],
+  "label_distribution": {
+    "BENIGN": 2273097,
+    "DoS Hulk": 231073,
+    "PortScan": 158930,
+    "DDoS": 128027,
+    "DoS GoldenEye": 10293,
+    "FTP-Patator": 7938,
+    "SSH-Patator": 5897,
+    "DoS slowloris": 5796,
+    "DoS Slowhttptest": 5499,
+    "Bot": 1966,
+    "Web Attack - Brute Force": 1507,
+    "Web Attack - XSS": 652,
+    "Infiltration": 36,
+    "Web Attack - SQL Injection": 21,
+    "Heartbleed": 11
+  },
+  "missing_critical_columns": {
+    "Timestamp": true,
+    "Source_IP": true,
+    "Destination_IP": true,
+    "Source_Port": true
+  },
+  "available_feature_groups": [
+    "Flow duration & volume (5)",
+    "Packet length statistics (14)",
+    "Inter-arrival time IAT (10)",
+    "TCP flags aggregate (10)",
+    "Rate features (4)",
+    "Header lengths (3)",
+    "Bulk statistics (6)",
+    "Subflow stats (4)",
+    "TCP window & segment (3)",
+    "Active/Idle time (8)",
+    "Destination Port (1)"
+  ],
+  "missing_packet_features": [
+    "IP TTL",
+    "IP Fragmentation flags",
+    "TCP Sequence/Ack numbers",
+    "TCP Retransmission count",
+    "TCP Out-of-order packets",
+    "Payload/DPI features",
+    "ICMP type/code",
+    "DNS query/response features",
+    "HTTP/HTTPS headers",
+    "Source Port",
+    "Source/Destination IP",
+    "Wall-clock Timestamp",
+    "Per-packet inter-arrival times"
+  ],
+  "temporal_ordering_strategy": "file_row_order_proxy",
+  "limitations": [
+    "No wall-clock timestamps \u2014 file row order used as temporal proxy",
+    "No IP addresses \u2014 cannot do host-level tracking or per-host sequences",
+    "No source port \u2014 cannot reconstruct full 5-tuple flows",
+    "Only flow-aggregate statistics available \u2014 no raw packet-level features",
+    "Extreme minority classes: Heartbleed=11, Infiltration=36, SQL Injection=21",
+    "High duplicate rate in Friday-PortScan (25.25%)"
+  ],
+  "ready_for_phase2": true
+}

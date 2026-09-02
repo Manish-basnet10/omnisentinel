@@ -1,0 +1,59 @@
+{
+  "phase": 14,
+  "description": "Zero-shot / unseen attack evaluation",
+  "train_class_ids": [
+    0,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    11,
+    12,
+    13,
+    14
+  ],
+  "test_class_ids": [
+    0,
+    2,
+    10
+  ],
+  "unseen_class_ids": [
+    2,
+    10
+  ],
+  "unseen_class_names": [
+    "DDoS",
+    "PortScan"
+  ],
+  "gru_binary_auc": {
+    "full_test": 0.8054,
+    "seen_attacks_vs_benign": null,
+    "unseen_attacks_vs_benign": 0.8054
+  },
+  "per_class_results": {
+    "BENIGN": {
+      "class_idx": 0,
+      "status": "SEEN",
+      "n_test_samples": 204416,
+      "roc_auc_ovr": 0.7473,
+      "avg_precision": 0.6658
+    },
+    "DDoS": {
+      "class_idx": 2,
+      "status": "UNSEEN",
+      "n_test_samples": 128016,
+      "roc_auc_ovr": 0.2623,
+      "avg_precision": 0.261
+    },
+    "PortScan": {
+      "class_idx": 10,
+      "status": "UNSEEN",
+      "n_test_samples": 90819,
+      "roc_auc_ovr": 0.4695,
+      "avg_precision": 0.1831
+    }
+  }
+}

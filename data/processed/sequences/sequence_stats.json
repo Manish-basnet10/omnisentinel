@@ -1,0 +1,13 @@
+{
+  "n_seq_train": 385203,
+  "n_seq_val": 173035,
+  "n_seq_test": 423241,
+  "total_sequences": 981479,
+  "attack_seqs_val": 1953,
+  "attack_seqs_test": 218835,
+  "attack_pct_val": 1.13,
+  "attack_pct_test": 51.7,
+  "mem_est_X_train_gb": 0.86,
+  "mem_X_val_mb": 396.0,
+  "mem_X_test_mb": 968.7
+}

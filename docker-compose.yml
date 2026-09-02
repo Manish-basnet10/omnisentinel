@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  omnisentinel-api:
+    build: .
+    container_name: omnisentinel-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Optional: Mount dashboard if you want to edit UI live without rebuilding
+      - ./dashboard:/app/dashboard
+    restart: unless-stopped

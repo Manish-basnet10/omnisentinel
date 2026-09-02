@@ -1,0 +1,624 @@
+{
+  "phase": 3,
+  "seed": 42,
+  "feature_inventory": {
+    "available_groups": {
+      "flow_volume": [
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets"
+      ],
+      "packet_length_stats": [
+        "Fwd Packet Length Max",
+        "Fwd Packet Length Min",
+        "Fwd Packet Length Mean",
+        "Fwd Packet Length Std",
+        "Bwd Packet Length Max",
+        "Bwd Packet Length Min",
+        "Bwd Packet Length Mean",
+        "Bwd Packet Length Std",
+        "Min Packet Length",
+        "Max Packet Length",
+        "Packet Length Mean",
+        "Packet Length Std",
+        "Packet Length Variance",
+        "Average Packet Size",
+        "Avg Fwd Segment Size",
+        "Avg Bwd Segment Size"
+      ],
+      "inter_arrival_time": [
+        "Flow IAT Mean",
+        "Flow IAT Std",
+        "Flow IAT Max",
+        "Flow IAT Min",
+        "Fwd IAT Total",
+        "Fwd IAT Mean",
+        "Fwd IAT Std",
+        "Fwd IAT Max",
+        "Fwd IAT Min",
+        "Bwd IAT Total",
+        "Bwd IAT Mean",
+        "Bwd IAT Std",
+        "Bwd IAT Max",
+        "Bwd IAT Min"
+      ],
+      "tcp_flags": [
+        "Fwd PSH Flags",
+        "Bwd PSH Flags",
+        "Fwd URG Flags",
+        "Bwd URG Flags",
+        "FIN Flag Count",
+        "SYN Flag Count",
+        "RST Flag Count",
+        "PSH Flag Count",
+        "ACK Flag Count",
+        "URG Flag Count",
+        "CWE Flag Count",
+        "ECE Flag Count"
+      ],
+      "rates": [
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s"
+      ],
+      "header": [
+        "Fwd Header Length",
+        "Bwd Header Length"
+      ],
+      "bulk_stats": [
+        "Fwd Avg Bytes/Bulk",
+        "Fwd Avg Packets/Bulk",
+        "Fwd Avg Bulk Rate",
+        "Bwd Avg Bytes/Bulk",
+        "Bwd Avg Packets/Bulk",
+        "Bwd Avg Bulk Rate"
+      ],
+      "subflow": [
+        "Subflow Fwd Packets",
+        "Subflow Fwd Bytes",
+        "Subflow Bwd Packets",
+        "Subflow Bwd Bytes"
+      ],
+      "tcp_window_segment": [
+        "Init_Win_bytes_forward",
+        "Init_Win_bytes_backward",
+        "act_data_pkt_fwd",
+        "min_seg_size_forward"
+      ],
+      "active_idle": [
+        "Active Mean",
+        "Active Std",
+        "Active Max",
+        "Active Min",
+        "Idle Mean",
+        "Idle Std",
+        "Idle Max",
+        "Idle Min"
+      ],
+      "network_id": [
+        "Destination Port",
+        "Down/Up Ratio"
+      ]
+    },
+    "missing_with_reason": {
+      "Timestamp_wallclock": "Stripped by CICFlowMeter in MachineLearningCSV variant",
+      "Source_IP": "Stripped by CICFlowMeter",
+      "Destination_IP": "Stripped by CICFlowMeter",
+      "Source_Port": "Stripped by CICFlowMeter",
+      "IP_TTL": "PCAP-level only \u2014 not in CICFlowMeter",
+      "IP_Fragmentation_flags": "PCAP-level only",
+      "TCP_Sequence_Ack_numbers": "PCAP-level only",
+      "TCP_Retransmission_count": "Not exported by CICFlowMeter",
+      "TCP_OutOfOrder_packets": "Not exported by CICFlowMeter",
+      "Payload_DPI_features": "Raw PCAP required",
+      "ICMP_type_code": "Not in CICFlowMeter output",
+      "DNS_features": "Not in CICFlowMeter output",
+      "HTTP_HTTPS_headers": "App-layer \u2014 not extracted",
+      "Per_packet_IAT": "Only flow-aggregate IAT available"
+    }
+  },
+  "removed_features": [
+    {
+      "column": "Bwd PSH Flags",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Bwd URG Flags",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Fwd Avg Bytes/Bulk",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Fwd Avg Packets/Bulk",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Fwd Avg Bulk Rate",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Bwd Avg Bytes/Bulk",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Bwd Avg Packets/Bulk",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Bwd Avg Bulk Rate",
+      "phase": 3,
+      "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+    },
+    {
+      "column": "Total Backward Packets",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Total Length of Bwd Packets",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Bwd Packet Length Std",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9829 > 0.97 with 'Bwd Packet Length Max'. Redundant.",
+      "kept_partner": "Bwd Packet Length Max"
+    },
+    {
+      "column": "Fwd IAT Total",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9985 > 0.97 with 'Flow Duration'. Redundant.",
+      "kept_partner": "Flow Duration"
+    },
+    {
+      "column": "Fwd IAT Max",
+      "phase": 3,
+      "reason": "Pearson |r|=0.998 > 0.97 with 'Flow IAT Max'. Redundant.",
+      "kept_partner": "Flow IAT Max"
+    },
+    {
+      "column": "Fwd Header Length",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Bwd Header Length",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Fwd Packets/s",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9822 > 0.97 with 'Flow Packets/s'. Redundant.",
+      "kept_partner": "Flow Packets/s"
+    },
+    {
+      "column": "Packet Length Std",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9844 > 0.97 with 'Max Packet Length'. Redundant.",
+      "kept_partner": "Max Packet Length"
+    },
+    {
+      "column": "SYN Flag Count",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd PSH Flags'. Redundant.",
+      "kept_partner": "Fwd PSH Flags"
+    },
+    {
+      "column": "CWE Flag Count",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd URG Flags'. Redundant.",
+      "kept_partner": "Fwd URG Flags"
+    },
+    {
+      "column": "ECE Flag Count",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'RST Flag Count'. Redundant.",
+      "kept_partner": "RST Flag Count"
+    },
+    {
+      "column": "Average Packet Size",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9978 > 0.97 with 'Packet Length Mean'. Redundant.",
+      "kept_partner": "Packet Length Mean"
+    },
+    {
+      "column": "Avg Fwd Segment Size",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd Packet Length Mean'. Redundant.",
+      "kept_partner": "Fwd Packet Length Mean"
+    },
+    {
+      "column": "Avg Bwd Segment Size",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Bwd Packet Length Mean'. Redundant.",
+      "kept_partner": "Bwd Packet Length Mean"
+    },
+    {
+      "column": "Subflow Fwd Packets",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Subflow Fwd Bytes",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Total Length of Fwd Packets'. Redundant.",
+      "kept_partner": "Total Length of Fwd Packets"
+    },
+    {
+      "column": "Subflow Bwd Packets",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Subflow Bwd Bytes",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "act_data_pkt_fwd",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9997 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "Idle Mean",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9792 > 0.97 with 'Flow IAT Max'. Redundant.",
+      "kept_partner": "Flow IAT Max"
+    },
+    {
+      "column": "Idle Max",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9894 > 0.97 with 'Flow IAT Max'. Redundant.",
+      "kept_partner": "Flow IAT Max"
+    },
+    {
+      "column": "Idle Min",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9896 > 0.97 with 'Idle Mean'. Redundant.",
+      "kept_partner": "Idle Mean"
+    },
+    {
+      "column": "syn_fin_ratio",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd PSH Flags'. Redundant.",
+      "kept_partner": "Fwd PSH Flags"
+    },
+    {
+      "column": "total_packets",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "total_bytes",
+      "phase": 3,
+      "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+      "kept_partner": "Total Fwd Packets"
+    },
+    {
+      "column": "log1p_flow_pkts_s",
+      "phase": 3,
+      "reason": "Pearson |r|=0.9776 > 0.97 with 'log1p_flow_duration'. Redundant.",
+      "kept_partner": "log1p_flow_duration"
+    }
+  ],
+  "steps": [
+    {
+      "step": 3,
+      "removed_nzv": [
+        "Bwd PSH Flags",
+        "Bwd URG Flags",
+        "Fwd Avg Bytes/Bulk",
+        "Fwd Avg Packets/Bulk",
+        "Fwd Avg Bulk Rate",
+        "Bwd Avg Bytes/Bulk",
+        "Bwd Avg Packets/Bulk",
+        "Bwd Avg Bulk Rate"
+      ]
+    },
+    {
+      "step": 4,
+      "engineered_features": [
+        "pkt_fwd_bwd_ratio",
+        "byte_fwd_bwd_ratio",
+        "avg_pkt_size_ratio",
+        "fwd_bwd_iat_ratio",
+        "active_idle_ratio",
+        "syn_fin_ratio",
+        "window_size_ratio",
+        "total_packets",
+        "total_bytes",
+        "flag_density_per_pkt",
+        "log1p_flow_duration",
+        "log1p_fwd_pkts",
+        "log1p_bwd_pkts",
+        "log1p_flow_bytes_s",
+        "log1p_flow_pkts_s",
+        "log1p_pkt_len_mean",
+        "log1p_idle_mean",
+        "log1p_active_mean"
+      ]
+    },
+    {
+      "step": 5,
+      "removed_corr": [
+        "Total Backward Packets",
+        "Total Length of Bwd Packets",
+        "Bwd Packet Length Std",
+        "Fwd IAT Total",
+        "Fwd IAT Max",
+        "Fwd Header Length",
+        "Bwd Header Length",
+        "Fwd Packets/s",
+        "Packet Length Std",
+        "SYN Flag Count",
+        "CWE Flag Count",
+        "ECE Flag Count",
+        "Average Packet Size",
+        "Avg Fwd Segment Size",
+        "Avg Bwd Segment Size",
+        "Subflow Fwd Packets",
+        "Subflow Fwd Bytes",
+        "Subflow Bwd Packets",
+        "Subflow Bwd Bytes",
+        "act_data_pkt_fwd",
+        "Idle Mean",
+        "Idle Max",
+        "Idle Min",
+        "syn_fin_ratio",
+        "total_packets",
+        "total_bytes",
+        "log1p_flow_pkts_s"
+      ],
+      "pairs": [
+        {
+          "dropped": "Total Backward Packets",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 0.9999
+        },
+        {
+          "dropped": "Total Length of Bwd Packets",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "Bwd Packet Length Std",
+          "kept": "Bwd Packet Length Max",
+          "pearson_r": 0.9829
+        },
+        {
+          "dropped": "Fwd IAT Total",
+          "kept": "Flow Duration",
+          "pearson_r": 0.9985
+        },
+        {
+          "dropped": "Fwd IAT Max",
+          "kept": "Flow IAT Max",
+          "pearson_r": 0.998
+        },
+        {
+          "dropped": "Fwd Header Length",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 0.9999
+        },
+        {
+          "dropped": "Bwd Header Length",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 0.9999
+        },
+        {
+          "dropped": "Fwd Packets/s",
+          "kept": "Flow Packets/s",
+          "pearson_r": 0.9822
+        },
+        {
+          "dropped": "Packet Length Std",
+          "kept": "Max Packet Length",
+          "pearson_r": 0.9844
+        },
+        {
+          "dropped": "SYN Flag Count",
+          "kept": "Fwd PSH Flags",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "CWE Flag Count",
+          "kept": "Fwd URG Flags",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "ECE Flag Count",
+          "kept": "RST Flag Count",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "Average Packet Size",
+          "kept": "Packet Length Mean",
+          "pearson_r": 0.9978
+        },
+        {
+          "dropped": "Avg Fwd Segment Size",
+          "kept": "Fwd Packet Length Mean",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "Avg Bwd Segment Size",
+          "kept": "Bwd Packet Length Mean",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "Subflow Fwd Packets",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "Subflow Fwd Bytes",
+          "kept": "Total Length of Fwd Packets",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "Subflow Bwd Packets",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 0.9999
+        },
+        {
+          "dropped": "Subflow Bwd Bytes",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "act_data_pkt_fwd",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 0.9997
+        },
+        {
+          "dropped": "Idle Mean",
+          "kept": "Flow IAT Max",
+          "pearson_r": 0.9792
+        },
+        {
+          "dropped": "Idle Max",
+          "kept": "Flow IAT Max",
+          "pearson_r": 0.9894
+        },
+        {
+          "dropped": "Idle Min",
+          "kept": "Idle Mean",
+          "pearson_r": 0.9896
+        },
+        {
+          "dropped": "syn_fin_ratio",
+          "kept": "Fwd PSH Flags",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "total_packets",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "total_bytes",
+          "kept": "Total Fwd Packets",
+          "pearson_r": 1.0
+        },
+        {
+          "dropped": "log1p_flow_pkts_s",
+          "kept": "log1p_flow_duration",
+          "pearson_r": 0.9776
+        }
+      ]
+    },
+    {
+      "step": 6,
+      "class2idx": {
+        "BENIGN": 0,
+        "Bot": 1,
+        "DDoS": 2,
+        "DoS_GoldenEye": 3,
+        "DoS_Hulk": 4,
+        "DoS_Slowhttptest": 5,
+        "DoS_slowloris": 6,
+        "FTP-Patator": 7,
+        "Heartbleed": 8,
+        "Infiltration": 9,
+        "PortScan": 10,
+        "SSH-Patator": 11,
+        "WebAttack_BruteForce": 12,
+        "WebAttack_SQLInjection": 13,
+        "WebAttack_XSS": 14
+      }
+    }
+  ],
+  "final_shape": {
+    "rows": 2522362,
+    "cols": 68
+  },
+  "final_numeric_count": 60,
+  "original_features_kept": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Length of Fwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd PSH Flags",
+    "Fwd URG Flags",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "URG Flag Count",
+    "Down/Up Ratio",
+    "Init_Win_bytes_forward",
+    "Init_Win_bytes_backward",
+    "min_seg_size_forward",
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Std"
+  ],
+  "engineered_features_added": [
+    "pkt_fwd_bwd_ratio",
+    "byte_fwd_bwd_ratio",
+    "avg_pkt_size_ratio",
+    "fwd_bwd_iat_ratio",
+    "active_idle_ratio",
+    "window_size_ratio",
+    "flag_density_per_pkt",
+    "log1p_flow_duration",
+    "log1p_fwd_pkts",
+    "log1p_bwd_pkts",
+    "log1p_flow_bytes_s",
+    "log1p_pkt_len_mean",
+    "log1p_idle_mean",
+    "log1p_active_mean"
+  ],
+  "elapsed_seconds": 11.58
+}

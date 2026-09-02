@@ -1,0 +1,153 @@
+{
+  "phase": 10,
+  "model": "GRU_WorldModel_Phase8",
+  "rollout_k": 8,
+  "n_eval_sequences": 3000,
+  "risk_discount": 0.85,
+  "rollout_aucs": [
+    0.8153,
+    0.8071,
+    0.7994,
+    0.79,
+    0.784,
+    0.7761,
+    0.7715,
+    0.7725
+  ],
+  "rollout_aps": [
+    0.879,
+    0.8694,
+    0.8557,
+    0.8368,
+    0.8213,
+    0.804,
+    0.7886,
+    0.7801
+  ],
+  "single_step_auc": 0.8056,
+  "auc_k1": 0.8153,
+  "auc_k8": 0.7725,
+  "auc_degradation_k1_to_k8": 0.0428,
+  "risk_score_stats": {
+    "mean": 35.354,
+    "std": 36.857,
+    "mean_benign": 12.839,
+    "mean_attack": 56.389,
+    "separation": 43.55
+  },
+  "risk_level_counts": {
+    "SAFE": 1569,
+    "LOW": 248,
+    "MEDIUM": 248,
+    "HIGH": 274,
+    "CRITICAL": 661
+  },
+  "mitre_tactic_k1": {
+    "Credential Access": 474,
+    "BENIGN": 810,
+    "Impact": 1705,
+    "Execution": 11
+  },
+  "top20_attack_saliency_features": [
+    {
+      "feature": "window_size_ratio",
+      "saliency": 0.004334,
+      "engineered": true
+    },
+    {
+      "feature": "log1p_pkt_len_mean",
+      "saliency": 0.002303,
+      "engineered": true
+    },
+    {
+      "feature": "PSH Flag Count",
+      "saliency": 0.002156,
+      "engineered": false
+    },
+    {
+      "feature": "log1p_flow_duration",
+      "saliency": 0.001273,
+      "engineered": true
+    },
+    {
+      "feature": "log1p_flow_bytes_s",
+      "saliency": 0.001091,
+      "engineered": true
+    },
+    {
+      "feature": "Packet Length Variance",
+      "saliency": 0.001034,
+      "engineered": false
+    },
+    {
+      "feature": "log1p_fwd_pkts",
+      "saliency": 0.000831,
+      "engineered": true
+    },
+    {
+      "feature": "Bwd Packets/s",
+      "saliency": 0.000778,
+      "engineered": false
+    },
+    {
+      "feature": "Bwd Packet Length Min",
+      "saliency": 0.000717,
+      "engineered": false
+    },
+    {
+      "feature": "Max Packet Length",
+      "saliency": 0.000668,
+      "engineered": false
+    },
+    {
+      "feature": "Bwd Packet Length Max",
+      "saliency": 0.000615,
+      "engineered": false
+    },
+    {
+      "feature": "Destination Port",
+      "saliency": 0.000581,
+      "engineered": false
+    },
+    {
+      "feature": "URG Flag Count",
+      "saliency": 0.000564,
+      "engineered": false
+    },
+    {
+      "feature": "log1p_active_mean",
+      "saliency": 0.000556,
+      "engineered": true
+    },
+    {
+      "feature": "Flow IAT Std",
+      "saliency": 0.000525,
+      "engineered": false
+    },
+    {
+      "feature": "Init_Win_bytes_forward",
+      "saliency": 0.000516,
+      "engineered": false
+    },
+    {
+      "feature": "Packet Length Mean",
+      "saliency": 0.000499,
+      "engineered": false
+    },
+    {
+      "feature": "log1p_idle_mean",
+      "saliency": 0.000493,
+      "engineered": true
+    },
+    {
+      "feature": "log1p_bwd_pkts",
+      "saliency": 0.000482,
+      "engineered": true
+    },
+    {
+      "feature": "FIN Flag Count",
+      "saliency": 0.000442,
+      "engineered": false
+    }
+  ]
+}

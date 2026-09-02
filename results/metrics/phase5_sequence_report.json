@@ -1,0 +1,64 @@
+{
+  "phase": 5,
+  "seq_len": 10,
+  "stride_train": 5,
+  "stride_eval": 1,
+  "steps": [
+    {
+      "step": 1,
+      "D": 60,
+      "n_train": 1926056,
+      "n_val": 173045,
+      "n_test": 423261
+    },
+    {
+      "step": 2,
+      "action": "boundary_check"
+    },
+    {
+      "step": 3,
+      "n_train_seq": 385203,
+      "mem_est_X_train_gb": 0.86
+    },
+    {
+      "step": 4,
+      "n_val_seq": 173035,
+      "X_val_shape": [
+        173035,
+        10,
+        60
+      ]
+    },
+    {
+      "step": 5,
+      "n_test_seq": 423241,
+      "X_test_shape": [
+        423241,
+        10,
+        60
+      ],
+      "test_binary_dist": {
+        "0": 204406,
+        "1": 218835
+      }
+    }
+  ],
+  "n_seq_train": 385203,
+  "n_seq_val": 173035,
+  "n_seq_test": 423241,
+  "total_sequences": 981479,
+  "elapsed_seconds": 6.58,
+  "sequence_stats": {
+    "n_seq_train": 385203,
+    "n_seq_val": 173035,
+    "n_seq_test": 423241,
+    "total_sequences": 981479,
+    "attack_seqs_val": 1953,
+    "attack_seqs_test": 218835,
+    "attack_pct_val": 1.13,
+    "attack_pct_test": 51.7,
+    "mem_est_X_train_gb": 0.86,
+    "mem_X_val_mb": 396.0,
+    "mem_X_test_mb": 968.7
+  }
+}

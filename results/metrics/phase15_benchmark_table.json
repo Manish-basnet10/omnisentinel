@@ -1,0 +1,72 @@
+{
+  "phase": 15,
+  "dataset": "CIC-IDS2017",
+  "split": "test (chronological)",
+  "models": [
+    "LR",
+    "XGB",
+    "GRU",
+    "LSTM"
+  ],
+  "binary_test": {
+    "accuracy": {
+      "LR": 0.688715,
+      "XGB": 0.7544,
+      "GRU": null,
+      "LSTM": null
+    },
+    "f1_macro": {
+      "LR": 0.670575,
+      "XGB": 0.7435,
+      "GRU": null,
+      "LSTM": null
+    },
+    "f1_weighted": {
+      "LR": 0.667943,
+      "XGB": 0.7418,
+      "GRU": null,
+      "LSTM": null
+    },
+    "recall_macro": {
+      "LR": 0.697511,
+      "XGB": 0.7623,
+      "GRU": null,
+      "LSTM": null
+    },
+    "roc_auc": {
+      "LR": 0.900306,
+      "XGB": 0.867,
+      "GRU": null,
+      "LSTM": null
+    }
+  },
+  "multiclass_test": {
+    "accuracy": {
+      "LR": 0.265132,
+      "XGB": 0.4829,
+      "GRU": null,
+      "LSTM": null
+    },
+    "f1_macro": {
+      "LR": 0.045689,
+      "XGB": 0.0667,
+      "GRU": null,
+      "LSTM": null
+    },
+    "f1_weighted": {
+      "LR": 0.308938,
+      "XGB": 0.322,
+      "GRU": null,
+      "LSTM": null
+    },
+    "recall_macro": {
+      "LR": 0.039211,
+      "XGB": 0.1,
+      "GRU": null,
+      "LSTM": null
+    }
+  },
+  "winner_binary_auc": "LR",
+  "winner_binary_f1": "XGB",
+  "winner_mc_f1": "XGB"
+}

@@ -1,0 +1,204 @@
+[
+  {
+    "column": "Bwd PSH Flags",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Bwd URG Flags",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Fwd Avg Bytes/Bulk",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Fwd Avg Packets/Bulk",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Fwd Avg Bulk Rate",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Bwd Avg Bytes/Bulk",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Bwd Avg Packets/Bulk",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Bwd Avg Bulk Rate",
+    "phase": 3,
+    "reason": "Zero variance (std=0). Constant value: [0]. No information for any model."
+  },
+  {
+    "column": "Total Backward Packets",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Total Length of Bwd Packets",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Bwd Packet Length Std",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9829 > 0.97 with 'Bwd Packet Length Max'. Redundant.",
+    "kept_partner": "Bwd Packet Length Max"
+  },
+  {
+    "column": "Fwd IAT Total",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9985 > 0.97 with 'Flow Duration'. Redundant.",
+    "kept_partner": "Flow Duration"
+  },
+  {
+    "column": "Fwd IAT Max",
+    "phase": 3,
+    "reason": "Pearson |r|=0.998 > 0.97 with 'Flow IAT Max'. Redundant.",
+    "kept_partner": "Flow IAT Max"
+  },
+  {
+    "column": "Fwd Header Length",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Bwd Header Length",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Fwd Packets/s",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9822 > 0.97 with 'Flow Packets/s'. Redundant.",
+    "kept_partner": "Flow Packets/s"
+  },
+  {
+    "column": "Packet Length Std",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9844 > 0.97 with 'Max Packet Length'. Redundant.",
+    "kept_partner": "Max Packet Length"
+  },
+  {
+    "column": "SYN Flag Count",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd PSH Flags'. Redundant.",
+    "kept_partner": "Fwd PSH Flags"
+  },
+  {
+    "column": "CWE Flag Count",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd URG Flags'. Redundant.",
+    "kept_partner": "Fwd URG Flags"
+  },
+  {
+    "column": "ECE Flag Count",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'RST Flag Count'. Redundant.",
+    "kept_partner": "RST Flag Count"
+  },
+  {
+    "column": "Average Packet Size",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9978 > 0.97 with 'Packet Length Mean'. Redundant.",
+    "kept_partner": "Packet Length Mean"
+  },
+  {
+    "column": "Avg Fwd Segment Size",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd Packet Length Mean'. Redundant.",
+    "kept_partner": "Fwd Packet Length Mean"
+  },
+  {
+    "column": "Avg Bwd Segment Size",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Bwd Packet Length Mean'. Redundant.",
+    "kept_partner": "Bwd Packet Length Mean"
+  },
+  {
+    "column": "Subflow Fwd Packets",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Subflow Fwd Bytes",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Total Length of Fwd Packets'. Redundant.",
+    "kept_partner": "Total Length of Fwd Packets"
+  },
+  {
+    "column": "Subflow Bwd Packets",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9999 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Subflow Bwd Bytes",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "act_data_pkt_fwd",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9997 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "Idle Mean",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9792 > 0.97 with 'Flow IAT Max'. Redundant.",
+    "kept_partner": "Flow IAT Max"
+  },
+  {
+    "column": "Idle Max",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9894 > 0.97 with 'Flow IAT Max'. Redundant.",
+    "kept_partner": "Flow IAT Max"
+  },
+  {
+    "column": "Idle Min",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9896 > 0.97 with 'Idle Mean'. Redundant.",
+    "kept_partner": "Idle Mean"
+  },
+  {
+    "column": "syn_fin_ratio",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Fwd PSH Flags'. Redundant.",
+    "kept_partner": "Fwd PSH Flags"
+  },
+  {
+    "column": "total_packets",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "total_bytes",
+    "phase": 3,
+    "reason": "Pearson |r|=1.0 > 0.97 with 'Total Fwd Packets'. Redundant.",
+    "kept_partner": "Total Fwd Packets"
+  },
+  {
+    "column": "log1p_flow_pkts_s",
+    "phase": 3,
+    "reason": "Pearson |r|=0.9776 > 0.97 with 'log1p_flow_duration'. Redundant.",
+    "kept_partner": "log1p_flow_duration"
+  }
+]

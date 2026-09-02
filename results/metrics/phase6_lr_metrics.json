@@ -1,0 +1,166 @@
+{
+  "phase": 6,
+  "model": "LogisticRegression",
+  "solver": "saga",
+  "C": 1.0,
+  "max_iter": 200,
+  "class_weight": "balanced",
+  "seed": 42,
+  "feature_dim": 60,
+  "n_train": 1926056,
+  "n_val": 173045,
+  "n_test": 423261,
+  "scaler": "StandardScaler (fit on train only)",
+  "binary": {
+    "n_iter": 41,
+    "converged": true,
+    "fit_time_s": 43.51,
+    "val": {
+      "accuracy": 0.942789,
+      "precision_macro": 0.494283,
+      "precision_weighted": 0.97704,
+      "recall_macro": 0.477535,
+      "recall_weighted": 0.942789,
+      "f1_macro": 0.485579,
+      "f1_weighted": 0.959605,
+      "roc_auc": 0.557823,
+      "avg_precision": 0.01558,
+      "per_class_f1": {
+        "BENIGN": 0.9706,
+        "ATTACK": 0.0006
+      }
+    },
+    "test": {
+      "accuracy": 0.688715,
+      "precision_macro": 0.764231,
+      "precision_weighted": 0.769339,
+      "recall_macro": 0.697511,
+      "recall_weighted": 0.688715,
+      "f1_macro": 0.670575,
+      "f1_weighted": 0.667943,
+      "roc_auc": 0.900306,
+      "avg_precision": 0.902515,
+      "per_class_f1": {
+        "BENIGN": 0.7479,
+        "ATTACK": 0.5933
+      }
+    }
+  },
+  "multiclass": {
+    "n_iter": 50,
+    "converged": true,
+    "fit_time_s": 154.99,
+    "val": {
+      "accuracy": 0.64708,
+      "precision_macro": 0.076072,
+      "precision_weighted": 0.977773,
+      "recall_macro": 0.050344,
+      "recall_weighted": 0.64708,
+      "f1_macro": 0.06059,
+      "f1_weighted": 0.778775,
+      "roc_auc_macro_ovr": "ERROR: Number of classes in y_true not equal to the number of columns in 'y_score'",
+      "per_class_f1": {
+        "BENIGN": 0.7877,
+        "Bot": 0.0
+      }
+    },
+    "test": {
+      "accuracy": 0.265132,
+      "precision_macro": 0.054732,
+      "precision_weighted": 0.370084,
+      "recall_macro": 0.039211,
+      "recall_weighted": 0.265132,
+      "f1_macro": 0.045689,
+      "f1_weighted": 0.308938,
+      "roc_auc_macro_ovr": "ERROR: Number of classes in y_true not equal to the number of columns in 'y_score'",
+      "per_class_f1": {
+        "BENIGN": 0.6397,
+        "DDoS": 0.0,
+        "PortScan": 0.0
+      }
+    }
+  },
+  "top_features_binary": [
+    {
+      "feature": "Packet Length Variance",
+      "coef_abs": 0.505438
+    },
+    {
+      "feature": "FIN Flag Count",
+      "coef_abs": 0.500645
+    },
+    {
+      "feature": "log1p_pkt_len_mean",
+      "coef_abs": 0.500382
+    },
+    {
+      "feature": "Destination Port",
+      "coef_abs": 0.500002
+    },
+    {
+      "feature": "log1p_active_mean",
+      "coef_abs": 0.430761
+    },
+    {
+      "feature": "Fwd IAT Std",
+      "coef_abs": 0.364301
+    },
+    {
+      "feature": "Bwd Packet Length Min",
+      "coef_abs": 0.348275
+    },
+    {
+      "feature": "Bwd Packet Length Max",
+      "coef_abs": 0.339804
+    },
+    {
+      "feature": "Bwd IAT Total",
+      "coef_abs": 0.308332
+    },
+    {
+      "feature": "log1p_flow_bytes_s",
+      "coef_abs": 0.303396
+    },
+    {
+      "feature": "Max Packet Length",
+      "coef_abs": 0.29168
+    },
+    {
+      "feature": "Bwd Packet Length Mean",
+      "coef_abs": 0.283963
+    },
+    {
+      "feature": "Flow IAT Max",
+      "coef_abs": 0.273278
+    },
+    {
+      "feature": "Flow IAT Std",
+      "coef_abs": 0.249071
+    },
+    {
+      "feature": "URG Flag Count",
+      "coef_abs": 0.24643
+    },
+    {
+      "feature": "ACK Flag Count",
+      "coef_abs": 0.229831
+    },
+    {
+      "feature": "Packet Length Mean",
+      "coef_abs": 0.216653
+    },
+    {
+      "feature": "Min Packet Length",
+      "coef_abs": 0.205406
+    },
+    {
+      "feature": "Init_Win_bytes_backward",
+      "coef_abs": 0.198609
+    },
+    {
+      "feature": "Fwd Packet Length Max",
+      "coef_abs": 0.184714
+    }
+  ],
+  "elapsed_seconds": 203.78
+}

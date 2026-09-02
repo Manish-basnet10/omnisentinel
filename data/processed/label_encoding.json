@@ -1,0 +1,53 @@
+{
+  "class2idx": {
+    "BENIGN": 0,
+    "Bot": 1,
+    "DDoS": 2,
+    "DoS_GoldenEye": 3,
+    "DoS_Hulk": 4,
+    "DoS_Slowhttptest": 5,
+    "DoS_slowloris": 6,
+    "FTP-Patator": 7,
+    "Heartbleed": 8,
+    "Infiltration": 9,
+    "PortScan": 10,
+    "SSH-Patator": 11,
+    "WebAttack_BruteForce": 12,
+    "WebAttack_SQLInjection": 13,
+    "WebAttack_XSS": 14
+  },
+  "idx2class": {
+    "0": "BENIGN",
+    "1": "Bot",
+    "2": "DDoS",
+    "3": "DoS_GoldenEye",
+    "4": "DoS_Hulk",
+    "5": "DoS_Slowhttptest",
+    "6": "DoS_slowloris",
+    "7": "FTP-Patator",
+    "8": "Heartbleed",
+    "9": "Infiltration",
+    "10": "PortScan",
+    "11": "SSH-Patator",
+    "12": "WebAttack_BruteForce",
+    "13": "WebAttack_SQLInjection",
+    "14": "WebAttack_XSS"
+  },
+  "classes": [
+    "BENIGN",
+    "Bot",
+    "DDoS",
+    "DoS_GoldenEye",
+    "DoS_Hulk",
+    "DoS_Slowhttptest",
+    "DoS_slowloris",
+    "FTP-Patator",
+    "Heartbleed",
+    "Infiltration",
+    "PortScan",
+    "SSH-Patator",
+    "WebAttack_BruteForce",
+    "WebAttack_SQLInjection",
+    "WebAttack_XSS"
+  ]
+}

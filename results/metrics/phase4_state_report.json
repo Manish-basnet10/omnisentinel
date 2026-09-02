@@ -1,0 +1,134 @@
+{
+  "phase": 4,
+  "seed": 42,
+  "steps": [
+    {
+      "step": 3,
+      "action": "sort_temporal"
+    },
+    {
+      "step": 5,
+      "action": "build_next_state_targets",
+      "total_rows": 2522362,
+      "boundary_rows": 8,
+      "valid_transitions": 2522354
+    },
+    {
+      "step": 6,
+      "action": "chronological_split",
+      "train_days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "val_days": [
+        6
+      ],
+      "test_days": [
+        7,
+        8
+      ],
+      "n_train": 1926056,
+      "n_val": 173045,
+      "n_test": 423261,
+      "train_label_dist": {
+        "BENIGN": 1720966,
+        "DoS_Hulk": 172849,
+        "DoS_GoldenEye": 10286,
+        "FTP-Patator": 5933,
+        "DoS_slowloris": 5385,
+        "DoS_Slowhttptest": 5228,
+        "SSH-Patator": 3219,
+        "WebAttack_BruteForce": 1470,
+        "WebAttack_XSS": 652,
+        "Infiltration": 36,
+        "WebAttack_SQLInjection": 21,
+        "Heartbleed": 11
+      },
+      "val_label_dist": {
+        "BENIGN": 171092,
+        "Bot": 1953
+      },
+      "test_label_dist": {
+        "BENIGN": 204426,
+        "DDoS": 128016,
+        "PortScan": 90819
+      }
+    }
+  ],
+  "output_files": [
+    "/Users/manishbasnet/Desktop/omnisentinel/ai-network-attack-forecasting/data/processed/state_train.parquet",
+    "/Users/manishbasnet/Desktop/omnisentinel/ai-network-attack-forecasting/data/processed/state_val.parquet",
+    "/Users/manishbasnet/Desktop/omnisentinel/ai-network-attack-forecasting/data/processed/state_test.parquet"
+  ],
+  "state_dim": 60,
+  "state_features": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Length of Fwd Packets",
+    "Fwd Packet Length Max",
+    "Fwd Packet Length Min",
+    "Fwd Packet Length Mean",
+    "Fwd Packet Length Std",
+    "Bwd Packet Length Max",
+    "Bwd Packet Length Min",
+    "Bwd Packet Length Mean",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Flow IAT Max",
+    "Flow IAT Min",
+    "Fwd IAT Mean",
+    "Fwd IAT Std",
+    "Fwd IAT Min",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Bwd IAT Max",
+    "Bwd IAT Min",
+    "Fwd PSH Flags",
+    "Fwd URG Flags",
+    "Bwd Packets/s",
+    "Min Packet Length",
+    "Max Packet Length",
+    "Packet Length Mean",
+    "Packet Length Variance",
+    "FIN Flag Count",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "ACK Flag Count",
+    "URG Flag Count",
+    "Down/Up Ratio",
+    "Init_Win_bytes_forward",
+    "Init_Win_bytes_backward",
+    "min_seg_size_forward",
+    "Active Mean",
+    "Active Std",
+    "Active Max",
+    "Active Min",
+    "Idle Std",
+    "pkt_fwd_bwd_ratio",
+    "byte_fwd_bwd_ratio",
+    "avg_pkt_size_ratio",
+    "fwd_bwd_iat_ratio",
+    "active_idle_ratio",
+    "window_size_ratio",
+    "flag_density_per_pkt",
+    "log1p_flow_duration",
+    "log1p_fwd_pkts",
+    "log1p_bwd_pkts",
+    "log1p_flow_bytes_s",
+    "log1p_pkt_len_mean",
+    "log1p_idle_mean",
+    "log1p_active_mean"
+  ],
+  "valid_transitions": 2522354,
+  "n_train": 1926056,
+  "n_val": 173045,
+  "n_test": 423261,
+  "elapsed_seconds": 16.19
+}

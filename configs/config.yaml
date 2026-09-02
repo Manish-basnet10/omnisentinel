@@ -1,0 +1,137 @@
+# OmniSentinel Project Configuration
+# SIH 2026 — Problem Statement 26153 (NTRO)
+# ==========================================
+# All hyperparameters, paths, and seeds are recorded here for full reproducibility.
+
+project:
+  name: "OmniSentinel"
+  problem_statement: "26153"
+  organization: "NTRO"
+  theme: "Cyber Security"
+  sih_year: 2026
+
+paths:
+  data_raw:       "data/raw/"
+  data_processed: "data/processed/"
+  models:         "models/"
+  results:        "results/"
+  plots:          "results/plots/"
+  metrics:        "results/metrics/"
+  predictions:    "results/predictions/"
+
+reproducibility:
+  seed: 42
+  torch_seed: 42
+  numpy_seed: 42
+
+data:
+  dataset: "CIC-IDS2017"
+  source: "Canadian Institute for Cybersecurity"
+  split_strategy: "chronological"   # STRICT: no leakage
+  train_days: [1, 2, 3, 4]
+  val_days:   [5]
+  test_days:  [6, 7, 8]
+
+preprocessing:
+  # Phase 2: Data Cleaning
+  drop_inf: true
+  drop_nan: true
+  drop_duplicate_flows: true
+  scaler: "StandardScaler"           # fitted on train only
+
+  # Phase 3: Feature Engineering
+  engineered_features:
+    - "byte_fwd_bwd_ratio"
+    - "pkt_fwd_bwd_ratio"
+    - "log1p_flow_duration"
+    - "log1p_flow_bytes_s"
+    - "log1p_fwd_pkts"
+    - "log1p_bwd_pkts"
+    - "log1p_pkt_len_mean"
+    - "log1p_idle_mean"
+    - "window_size_ratio"
+
+  # Phase 4: State Representation
+  state_dim: 60  # final number of features
+
+  # Phase 5: Sequence Construction
+  seq_len: 10
+  stride: 1
+  boundary_aware: true   # sequences never cross day or BENIGN/ATTACK boundaries
+
+models:
+  # Phase 6: Logistic Regression Baseline
+  logistic_regression:
+    C: 1.0
+    max_iter: 1000
+    solver: "lbfgs"
+    class_weight: "balanced"
+
+  # Phase 7: XGBoost
+  xgboost_binary:
+    n_estimators: 14
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    scale_pos_weight: "auto"   # handles class imbalance
+    seed: 42
+
+  xgboost_multiclass:
+    n_estimators: 153
+    max_depth: 6
+    learning_rate: 0.1
+    objective: "multi:softprob"
+    num_class: 15
+    seed: 42
+
+  # Phase 8: GRU World Model (PRIMARY)
+  gru_world_model:
+    hidden_dim: 128
+    num_layers: 2
+    dropout: 0.3
+    seq_len: 10
+    n_classes_mc: 15
+    batch_size: 512
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    epochs: 50
+    patience: 10   # early stopping
+    scheduler: "ReduceLROnPlateau"
+
+  # Phase 9: LSTM World Model (Comparison)
+  lstm_world_model:
+    hidden_dim: 128
+    num_layers: 2
+    dropout: 0.3
+    seq_len: 10
+    n_classes_mc: 15
+    batch_size: 512
+    learning_rate: 0.001
+    epochs: 50
+    patience: 10
+
+forecasting:
+  # Phase 10: K-step Rollout
+  rollout_k: 8
+  risk_discount: 0.85
+  risk_thresholds:
+    safe:     0.0
+    low:      20.0
+    medium:   40.0
+    high:     65.0
+    critical: 85.0
+
+explainability:
+  # Phase 13: SHAP
+  shap_eval_samples: 500
+  shap_background_samples: 200
+  gru_shap_eval_sequences: 100
+  gru_shap_background_sequences: 50
+  explainer_xgb: "TreeExplainer"
+  explainer_gru: "DeepExplainer"
+
+serving:
+  host: "0.0.0.0"
+  port: 8000
+  demo_stream_interval_s: 1.8

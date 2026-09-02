@@ -1,0 +1,132 @@
+{
+  "phase": 2,
+  "seed": 42,
+  "files_processed": [
+    {
+      "order": 1,
+      "file": "Monday-WorkingHours.pcap_ISCX.csv",
+      "rows_loaded": 529918
+    },
+    {
+      "order": 2,
+      "file": "Tuesday-WorkingHours.pcap_ISCX.csv",
+      "rows_loaded": 445909
+    },
+    {
+      "order": 3,
+      "file": "Wednesday-workingHours.pcap_ISCX.csv",
+      "rows_loaded": 692703
+    },
+    {
+      "order": 4,
+      "file": "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+      "rows_loaded": 170366
+    },
+    {
+      "order": 5,
+      "file": "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv",
+      "rows_loaded": 288602
+    },
+    {
+      "order": 6,
+      "file": "Friday-WorkingHours-Morning.pcap_ISCX.csv",
+      "rows_loaded": 191033
+    },
+    {
+      "order": 7,
+      "file": "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+      "rows_loaded": 286467
+    },
+    {
+      "order": 8,
+      "file": "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+      "rows_loaded": 225745
+    }
+  ],
+  "steps": [
+    {
+      "step": 2,
+      "action": "drop_dup_col",
+      "col": "Fwd Header Length.1"
+    },
+    {
+      "step": 3,
+      "action": "normalize_labels"
+    },
+    {
+      "step": 4,
+      "action": "drop_duplicates",
+      "removed": 308381,
+      "pct": 10.89
+    },
+    {
+      "step": 6,
+      "action": "replace_inf",
+      "inf_replaced": 2775,
+      "nan_after": 3128
+    },
+    {
+      "step": 7,
+      "action": "median_impute",
+      "cols_imputed": 2,
+      "nan_remaining": 0
+    }
+  ],
+  "removed_columns": [
+    {
+      "column": "Fwd Header Length.1",
+      "reason": "Exact duplicate of 'Fwd Header Length' (col 34). Zero information gain.",
+      "phase": 2
+    }
+  ],
+  "pre_cleaning": {
+    "rows": 2830743,
+    "cols": 84
+  },
+  "label_normalization": {
+    "raw": 15,
+    "normalized": 15,
+    "labels": [
+      "BENIGN",
+      "Bot",
+      "DDoS",
+      "DoS_GoldenEye",
+      "DoS_Hulk",
+      "DoS_Slowhttptest",
+      "DoS_slowloris",
+      "FTP-Patator",
+      "Heartbleed",
+      "Infiltration",
+      "PortScan",
+      "SSH-Patator",
+      "WebAttack_BruteForce",
+      "WebAttack_SQLInjection",
+      "WebAttack_XSS"
+    ]
+  },
+  "post_cleaning": {
+    "rows": 2522362,
+    "cols": 83,
+    "nan": 0,
+    "inf": 0,
+    "label_distribution": {
+      "BENIGN": 2096484,
+      "DoS_Hulk": 172849,
+      "DDoS": 128016,
+      "PortScan": 90819,
+      "DoS_GoldenEye": 10286,
+      "FTP-Patator": 5933,
+      "DoS_slowloris": 5385,
+      "DoS_Slowhttptest": 5228,
+      "SSH-Patator": 3219,
+      "Bot": 1953,
+      "WebAttack_BruteForce": 1470,
+      "WebAttack_XSS": 652,
+      "Infiltration": 36,
+      "WebAttack_SQLInjection": 21,
+      "Heartbleed": 11
+    }
+  },
+  "output_parquet": "/Users/manishbasnet/Desktop/omnisentinel/ai-network-attack-forecasting/data/processed/cleaned_full.parquet",
+  "elapsed_seconds": 35.8
+}
