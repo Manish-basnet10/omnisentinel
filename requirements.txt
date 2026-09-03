@@ -24,6 +24,10 @@ fastapi>=0.121.1
 uvicorn>=0.38.0
 pydantic>=2.0.0          # FastAPI data validation
 requests>=2.32.0         # HTTP client (dashboard tests)
+python-multipart>=0.0.18 # file upload support
+
+# ── PCAP Processing ─────────────────────────────────────────────────
+scapy>=2.5.0             # CICFlow feature extraction
 
 # ── Testing ─────────────────────────────────────────────────────────
 pytest>=9.1.1
