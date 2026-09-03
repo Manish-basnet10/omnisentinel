@@ -1,10 +1,29 @@
-fastapi
-uvicorn
-torch
-numpy
-pandas
-scikit-learn
-xgboost
-matplotlib
-seaborn
-pyarrow
+# OmniSentinel — Python Dependencies
+# Install with: pip install -r requirements.txt
+# Tested on Python 3.10 (use python3.10 / pip3.10)
+
+# ── Core ML & Data ──────────────────────────────────────────────────
+torch>=2.13.0
+numpy>=2.2.6
+pandas>=2.3.3
+scikit-learn>=1.6.1
+xgboost>=3.2.0
+scipy>=1.15.3
+joblib>=1.5.2
+pyarrow>=25.0.1          # parquet file support
+
+# ── Deep Learning Explainability ────────────────────────────────────
+shap>=0.49.1             # SHAP values (Phase 13)
+
+# ── Visualization ───────────────────────────────────────────────────
+matplotlib>=3.10.7
+seaborn>=0.13.2
+
+# ── API & Serving ───────────────────────────────────────────────────
+fastapi>=0.121.1
+uvicorn>=0.38.0
+pydantic>=2.0.0          # FastAPI data validation
+requests>=2.32.0         # HTTP client (dashboard tests)
+
+# ── Testing ─────────────────────────────────────────────────────────
+pytest>=9.1.1

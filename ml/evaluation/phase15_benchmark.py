@@ -30,15 +30,41 @@ xgb  = load("phase7_xgb_metrics.json")
 gru  = load("phase8_gru_metrics.json")
 lstm = load("phase9_lstm_metrics.json")
 
+def get_metric(m_dict, section, metric):
+    """
+    Fetch a test metric from a model dict, handling two JSON structures:
+
+    Structure A — LR / XGB (phase6/7):
+        model["binary"]["test"]["roc_auc"]
+        model["multiclass"]["test"]["f1_macro"]
+
+    Structure B — GRU / LSTM (phase8/9):
+        model["test"]["bin_roc_auc"]
+        model["test"]["mc_f1_macro"]
+        (no 'binary' or 'multiclass' sub-key — metrics stored flat with prefix)
+    """
+    if not m_dict:
+        return None
+    prefix = "bin_" if section == "binary" else "mc_"
+
+    # Try Structure A (LR/XGB): model[section]["test"][metric]
+    val = m_dict.get(section, {}).get("test", {}).get(metric)
+    if val is not None:
+        return val
+
+    # Try Structure B (GRU/LSTM): model["test"][prefix + metric]
+    val = m_dict.get("test", {}).get(f"{prefix}{metric}")
+    return val
+
 # ── Binary Test Metrics ────────────────────────────────────────────────────────
 bin_metrics = ["accuracy", "f1_macro", "f1_weighted", "recall_macro", "roc_auc"]
 bin_table = {}
 for m in bin_metrics:
     bin_table[m] = {
-        "LR":   lr.get("binary", {}).get("test", {}).get(m),
-        "XGB":  xgb.get("binary", {}).get("test", {}).get(m),
-        "GRU":  gru.get("binary", {}).get("test", {}).get(m),
-        "LSTM": lstm.get("binary", {}).get("test", {}).get(m),
+        "LR":   get_metric(lr,   "binary", m),
+        "XGB":  get_metric(xgb,  "binary", m),
+        "GRU":  get_metric(gru,  "binary", m),
+        "LSTM": get_metric(lstm, "binary", m),
     }
 
 # ── Multiclass Test Metrics ────────────────────────────────────────────────────
@@ -46,10 +72,10 @@ mc_metrics = ["accuracy", "f1_macro", "f1_weighted", "recall_macro"]
 mc_table = {}
 for m in mc_metrics:
     mc_table[m] = {
-        "LR":   lr.get("multiclass", {}).get("test", {}).get(m),
-        "XGB":  xgb.get("multiclass", {}).get("test", {}).get(m),
-        "GRU":  gru.get("multiclass", {}).get("test", {}).get(m),
-        "LSTM": lstm.get("multiclass", {}).get("test", {}).get(m),
+        "LR":   get_metric(lr,   "multiclass", m),
+        "XGB":  get_metric(xgb,  "multiclass", m),
+        "GRU":  get_metric(gru,  "multiclass", m),
+        "LSTM": get_metric(lstm, "multiclass", m),
     }
 
 

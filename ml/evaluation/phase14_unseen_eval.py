@@ -153,11 +153,11 @@ auc_unseen = float(roc_auc_score(y_bin_trunc[idx_unseen], p_bin[idx_unseen])) if
 auc_seen   = float(roc_auc_score(y_bin_trunc[idx_seen],   p_bin[idx_seen]))   if seen_mask.sum()   > 0 else None
 auc_full   = float(roc_auc_score(y_bin_trunc,             p_bin))
 
-if auc_seen:
+if auc_seen is not None:
     print(f"  Seen attacks vs BENIGN:   {auc_seen:.4f}")
 else:
     print("  Seen attacks vs BENIGN:   N/A (No seen attacks in test set)")
-if auc_unseen:
+if auc_unseen is not None:
     print(f"  Unseen attacks vs BENIGN: {auc_unseen:.4f}")
 
 # ── PLOT 1: Per-class AUC bar (seen=blue, unseen=red) ─────────────────────────

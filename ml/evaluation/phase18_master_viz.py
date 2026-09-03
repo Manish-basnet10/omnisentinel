@@ -70,16 +70,24 @@ def styled_ax(ax, title):
     ax.yaxis.label.set_color(MUTED)
     ax.set_title(title, color=TEXT, fontsize=10, fontweight="bold", pad=8)
 
+def get_bin(m, key):
+    """Get binary test metric — handles LR/XGB (binary.test.key) and GRU/LSTM (test.bin_key) structures."""
+    if not m: return 0
+    v = m.get("binary", {}).get("test", {}).get(key)
+    if v is None:
+        v = m.get("test", {}).get(f"bin_{key}")
+    return v or 0
+
 # ── Panel A: Benchmark Binary AUC ─────────────────────────────────────────────
 ax_a = fig.add_subplot(gs[0, 0])
 styled_ax(ax_a, "A. Binary ROC-AUC — Test Set")
 models = ["LR", "XGB", "GRU", "LSTM"]
 colors_m = [BLUE, RED, GREEN, PURPLE]
 aucs = [
-    lr.get("binary", {}).get("test", {}).get("roc_auc", 0)   if lr   else 0,
-    xgb.get("binary", {}).get("test", {}).get("roc_auc", 0)  if xgb  else 0,
-    gru.get("binary", {}).get("test", {}).get("roc_auc", 0)  if gru  else 0,
-    lstm.get("binary", {}).get("test", {}).get("roc_auc", 0) if lstm else 0,
+    get_bin(lr,   "roc_auc"),
+    get_bin(xgb,  "roc_auc"),
+    get_bin(gru,  "roc_auc"),
+    get_bin(lstm, "roc_auc"),
 ]
 bars = ax_a.bar(models, aucs, color=colors_m, edgecolor=DARK, linewidth=0.5, width=0.55)
 ax_a.axhline(0.5, color=MUTED, linestyle="--", linewidth=0.8, alpha=0.6)
@@ -93,10 +101,10 @@ for bar, val in zip(bars, aucs):
 ax_b = fig.add_subplot(gs[0, 1])
 styled_ax(ax_b, "B. Binary F1-Macro — Test Set")
 f1s = [
-    lr.get("binary", {}).get("test", {}).get("f1_macro", 0)   if lr   else 0,
-    xgb.get("binary", {}).get("test", {}).get("f1_macro", 0)  if xgb  else 0,
-    gru.get("binary", {}).get("test", {}).get("f1_macro", 0)  if gru  else 0,
-    lstm.get("binary", {}).get("test", {}).get("f1_macro", 0) if lstm else 0,
+    get_bin(lr,   "f1_macro"),
+    get_bin(xgb,  "f1_macro"),
+    get_bin(gru,  "f1_macro"),
+    get_bin(lstm, "f1_macro"),
 ]
 bars = ax_b.bar(models, f1s, color=colors_m, edgecolor=DARK, linewidth=0.5, width=0.55)
 ax_b.set_ylim(0, 1.05)
@@ -109,9 +117,11 @@ for bar, val in zip(bars, f1s):
 ax_c = fig.add_subplot(gs[0, 2])
 styled_ax(ax_c, "C. GRU K-step Rollout AUC Curve")
 if ph10:
-    k_aucs = ph10.get("rollout_auc", {})
-    ks     = sorted([int(k) for k in k_aucs.keys()])
-    auc_v  = [k_aucs[str(k)] for k in ks]
+    # rollout_aucs is a list [auc_k1, auc_k2, ...] — convert to {1: v, 2: v, ...}
+    k_aucs_list = ph10.get("rollout_aucs", [])
+    k_aucs = {i + 1: v for i, v in enumerate(k_aucs_list)}
+    ks     = sorted(k_aucs.keys())
+    auc_v  = [k_aucs[k] for k in ks]
     ax_c.plot(ks, auc_v, "o-", color=GREEN, linewidth=2.5, markersize=6,
               markerfacecolor=DARK, markeredgecolor=GREEN, markeredgewidth=2)
     ax_c.fill_between(ks, auc_v, alpha=0.12, color=GREEN)
@@ -127,11 +137,12 @@ if ph10:
 # ── Panel D: Training Curves (GRU) ────────────────────────────────────────────
 ax_d = fig.add_subplot(gs[1, 0])
 styled_ax(ax_d, "D. GRU Training History")
-if gru and "training_history" in gru:
-    hist  = gru["training_history"]
-    eps   = list(range(1, len(hist["train_loss"]) + 1))
-    ax_d.plot(eps, hist["train_loss"], color=BLUE,   linewidth=1.8, label="Train Loss")
-    ax_d.plot(eps, hist["val_loss"],   color=RED,    linewidth=1.8, label="Val Loss",   linestyle="--")
+if gru and "history" in gru:
+    # history is a list of epoch dicts: [{epoch, train_loss, val_loss, ...}, ...]
+    hist  = gru["history"]
+    eps   = [h["epoch"] for h in hist]
+    ax_d.plot(eps, [h["train_loss"] for h in hist], color=BLUE,  linewidth=1.8, label="Train Loss")
+    ax_d.plot(eps, [h["val_loss"]   for h in hist], color=RED,   linewidth=1.8, label="Val Loss",  linestyle="--")
     ax_d.set_ylabel("Loss", color=MUTED)
     ax_d.set_xlabel("Epoch", color=MUTED)
     ax_d.legend(fontsize=8, facecolor=DARK, labelcolor=TEXT, edgecolor="#30363d")
@@ -143,10 +154,11 @@ else:
 ax_e = fig.add_subplot(gs[1, 1])
 styled_ax(ax_e, "E. Risk Score: Attack vs Benign Separation")
 if ph10:
-    risk_data = ph10.get("risk_analysis", {})
-    atk_mean  = risk_data.get("attack_mean_risk",  ph10.get("attack_mean_risk",  56.4))
-    ben_mean  = risk_data.get("benign_mean_risk",   ph10.get("benign_mean_risk",  12.8))
-    delta     = atk_mean - ben_mean
+    # Correct key path: risk_score_stats.mean_attack / mean_benign
+    risk_stats = ph10.get("risk_score_stats", {})
+    atk_mean   = risk_stats.get("mean_attack",  56.4)
+    ben_mean   = risk_stats.get("mean_benign",  12.8)
+    delta      = atk_mean - ben_mean
     categories = ["BENIGN\nMean Risk", "ATTACK\nMean Risk", "Separation\n(Δ)"]
     values     = [ben_mean, atk_mean, delta]
     bar_colors = [GREEN, RED, ORANGE]
@@ -161,10 +173,8 @@ if ph10:
 ax_f = fig.add_subplot(gs[1, 2])
 styled_ax(ax_f, "F. MITRE ATT&CK Tactic Distribution (k=1)")
 if ph10:
-    tactic_data = ph10.get("mitre_tactic_distribution", {})
-    if not tactic_data:
-        # Try alternate key
-        tactic_data = ph10.get("tactic_distribution", {})
+    # Correct key: mitre_tactic_k1 (dict of {tactic: count})
+    tactic_data = ph10.get("mitre_tactic_k1", {})
     if tactic_data:
         sorted_t = sorted(tactic_data.items(), key=lambda x: -x[1])[:6]
         tnames   = [t[0] if t[0] else "BENIGN" for t in sorted_t]
