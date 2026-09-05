@@ -233,6 +233,28 @@
     <span>GRU World Model · K-step Rollout · MITRE ATT&amp;CK · Gradient Saliency</span>
   </footer>
 
+  <!-- ════════════════════════ UPLOAD OVERLAY ═════════════════════════════ -->
+  <div class="upload-overlay" id="upload-overlay">
+    <div class="upload-modal">
+      <div class="logo-icon modal-icon">⬡</div>
+      <h2>Analyze PCAP Capture</h2>
+      <p>Upload a .pcap file to generate an AI network attack forecast.</p>
+      
+      <div class="upload-dropzone" id="upload-dropzone">
+        <span class="upload-icon">📁</span>
+        <span class="upload-text">Drag & Drop PCAP here or <strong>Browse</strong></span>
+        <input type="file" id="pcap-file-input" accept=".pcap,.pcapng" hidden />
+      </div>
+
+      <div class="upload-status" id="upload-status">
+        <div class="status-dot pulsing"></div>
+        <span id="upload-status-text">Processing with Zeek & AI Models...</span>
+      </div>
+      
+      <div class="upload-error" id="upload-error"></div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

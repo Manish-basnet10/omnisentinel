@@ -290,35 +290,114 @@ function updateSaliency(scenario) {
   }
 }
 
-// SSE Connection
-function connectStream() {
-  const evtSource = new EventSource(API_BASE + "/demo-stream");
+// ── PCAP File Upload Logic ──────────────────────────────────────────────────
+const elUploadOverlay = document.getElementById("upload-overlay");
+const elDropzone = document.getElementById("upload-dropzone");
+const elFileInput = document.getElementById("pcap-file-input");
+const elUploadStatus = document.getElementById("upload-status");
+const elUploadError = document.getElementById("upload-error");
+
+function setupUpload() {
+  elDropzone.addEventListener("click", () => elFileInput.click());
   
-  evtSource.onopen = function() {
-    elStatusPill.className = "status-pill";
-    elStatusPill.innerHTML = '<span class="status-dot pulsing"></span><span id="status-text">Live SSE Stream</span>';
-  };
+  elDropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    elDropzone.classList.add("dragover");
+  });
   
-  evtSource.onmessage = function(e) {
-    const data = JSON.parse(e.data);
-    updateDashboard(data);
-    // Simulate some latency variance
-    elMLatency.textContent = (Math.random() * 5 + 12).toFixed(1) + " ms";
-  };
+  elDropzone.addEventListener("dragleave", () => {
+    elDropzone.classList.remove("dragover");
+  });
   
-  evtSource.onerror = function(e) {
-    elStatusPill.className = "status-pill danger";
-    elStatusPill.innerHTML = '<span class="status-dot danger"></span><span id="status-text">Disconnected</span>';
-    evtSource.close();
-    
-    // Try reconnect
-    setTimeout(connectStream, 5000);
-  };
+  elDropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    elDropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  });
+
+  elFileInput.addEventListener("change", (e) => {
+    if (e.target.files.length) {
+      handleFileUpload(e.target.files[0]);
+    }
+  });
 }
 
+async function handleFileUpload(file) {
+  elUploadError.classList.remove("active");
+  elUploadStatus.classList.add("active");
+  
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch(API_BASE + "/api/analyze-pcap", {
+      method: "POST",
+      body: formData
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Analysis failed");
+    }
+    
+    const data = await res.json();
+    
+    // Map PCAP response format to dashboard format
+    const mappedData = {
+      risk_score: data.current_state.risk_score,
+      risk_level: data.current_state.risk_level,
+      max_attack_prob: Math.max(...data.forecast.map(f => f.attack_prob)),
+      attack_probability_timeline: data.forecast.map(f => f.attack_prob),
+      scenario: "PCAP Analysis",
+      predicted_tactic_k1: data.mitre_progression[0].tactic,
+      alert: data.current_state.risk_level === "HIGH" || data.current_state.risk_level === "CRITICAL",
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false })
+    };
+
+    updateDashboard(mappedData);
+    
+    // Update metric cards
+    elMAuc.textContent = "—";
+    elMLatency.textContent = data.processing_time_ms + " ms";
+    
+    // Update Saliency directly from backend instead of mock
+    if (data.top_saliency_features) {
+      elSaliencyList.innerHTML = "";
+      data.top_saliency_features.slice(0, 5).forEach(f => {
+        const pct = (f.saliency_score / data.top_saliency_features[0].saliency_score) * 100;
+        elSaliencyList.innerHTML += `
+          <div class="sal-row">
+            <div class="sal-header">
+              <span class="sal-name" title="${f.feature}">${f.feature}</span>
+              <span class="sal-tag orig">RAW</span>
+              <span class="sal-val">${f.saliency_score.toFixed(4)}</span>
+            </div>
+            <div class="sal-bar-bg">
+              <div class="sal-bar-fill" style="width: ${Math.min(pct, 100)}%"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+    
+    // Hide overlay
+    elUploadOverlay.classList.add("hidden");
+    
+    elStatusPill.className = "status-pill";
+    elStatusPill.innerHTML = '<span class="status-dot"></span><span id="status-text">PCAP Analysis Complete</span>';
+    
+  } catch (err) {
+    elUploadError.textContent = err.message;
+    elUploadError.classList.add("active");
+  } finally {
+    elUploadStatus.classList.remove("active");
+  }
+}
 
 // Init
 window.onload = () => {
   initCharts();
-  connectStream();
+  setupUpload();
 };
