@@ -73,8 +73,17 @@ def main():
     global_seq = 0
     for meta in FILE_ORDER:
         fpath = DATA_DIR / meta["file"]
+        fpath_parquet = DATA_DIR / (meta["file"] + ".parquet")
+        
         print(f"  [{meta['order']}] {meta['file']}", end=" ... ", flush=True)
-        df = pd.read_csv(fpath, low_memory=False)
+        
+        if fpath_parquet.exists():
+            df = pd.read_parquet(fpath_parquet)
+        elif fpath.exists():
+            df = pd.read_csv(fpath, low_memory=False)
+        else:
+            raise FileNotFoundError(f"Could not find {fpath.name} or {fpath_parquet.name} in {DATA_DIR}")
+            
         df.columns = df.columns.str.strip()
         rows_raw = len(df)
         df["day_order"]    = meta["order"]

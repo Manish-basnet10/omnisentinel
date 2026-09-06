@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OmniSentinel — AI Network Attack Forecasting | SIH 2026</title>
-  <meta name="description" content="Real-time AI-powered network attack forecasting with GRU World Model, K-step rollout, MITRE ATT&CK mapping, and risk scoring." />
+  <meta name="description"
+    content="Real-time AI-powered network attack forecasting with GRU World Model, K-step rollout, MITRE ATT&CK mapping, and risk scoring." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
   <!-- ═══════════════════════════════ HEADER ════════════════════════════════ -->
   <header class="topbar">
@@ -52,24 +57,25 @@
           <svg class="gauge-svg" viewBox="0 0 200 120">
             <defs>
               <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%"   stop-color="#27ae60"/>
-                <stop offset="40%"  stop-color="#f1c40f"/>
-                <stop offset="70%"  stop-color="#e67e22"/>
-                <stop offset="100%" stop-color="#e74c3c"/>
+                <stop offset="0%" stop-color="#27ae60" />
+                <stop offset="40%" stop-color="#f1c40f" />
+                <stop offset="70%" stop-color="#e67e22" />
+                <stop offset="100%" stop-color="#e74c3c" />
               </linearGradient>
             </defs>
             <!-- background arc -->
-            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e2a3a" stroke-width="18" stroke-linecap="round"/>
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e2a3a" stroke-width="18"
+              stroke-linecap="round" />
             <!-- colored arc -->
             <path id="gauge-arc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)"
-                  stroke-width="18" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+              stroke-width="18" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3" />
             <!-- needle -->
             <line id="gauge-needle" x1="100" y1="100" x2="100" y2="28" stroke="#ffffff" stroke-width="2.5"
-                  stroke-linecap="round" transform="rotate(0 100 100)"/>
-            <circle cx="100" cy="100" r="6" fill="#ffffff"/>
+              stroke-linecap="round" transform="rotate(0 100 100)" />
+            <circle cx="100" cy="100" r="6" fill="#ffffff" />
             <!-- labels -->
-            <text x="18"  y="115" fill="#95a5a6" font-size="9" font-family="Inter">SAFE</text>
-            <text x="85"  y="22"  fill="#95a5a6" font-size="9" font-family="Inter">MED</text>
+            <text x="18" y="115" fill="#95a5a6" font-size="9" font-family="Inter">SAFE</text>
+            <text x="85" y="22" fill="#95a5a6" font-size="9" font-family="Inter">MED</text>
             <text x="167" y="115" fill="#95a5a6" font-size="9" font-family="Inter">CRIT</text>
           </svg>
           <div class="gauge-score-wrap">
@@ -78,9 +84,12 @@
           </div>
         </div>
         <div class="risk-stats">
-          <div class="risk-stat"><span class="rs-label">Max P(attack)</span><span class="rs-val" id="max-prob">—</span></div>
-          <div class="risk-stat"><span class="rs-label">Mean P(attack)</span><span class="rs-val" id="mean-prob">—</span></div>
-          <div class="risk-stat"><span class="rs-label">Sequences</span><span class="rs-val" id="seq-count">0</span></div>
+          <div class="risk-stat"><span class="rs-label">Max P(attack)</span><span class="rs-val" id="max-prob">—</span>
+          </div>
+          <div class="risk-stat"><span class="rs-label">Mean P(attack)</span><span class="rs-val"
+              id="mean-prob">—</span></div>
+          <div class="risk-stat"><span class="rs-label">Sequences</span><span class="rs-val" id="seq-count">0</span>
+          </div>
         </div>
       </div>
 
@@ -94,10 +103,14 @@
           <!-- filled by JS -->
         </div>
         <div class="mitre-current">
-          <div class="mitre-row"><span class="mitre-k">Predicted Tactic</span><span class="mitre-v" id="mitre-tactic">—</span></div>
-          <div class="mitre-row"><span class="mitre-k">Technique</span><span class="mitre-v" id="mitre-technique">—</span></div>
-          <div class="mitre-row"><span class="mitre-k">Severity</span><span class="mitre-v" id="mitre-severity">—</span></div>
-          <div class="mitre-row"><span class="mitre-k">Next Stage</span><span class="mitre-v" id="mitre-next">—</span></div>
+          <div class="mitre-row"><span class="mitre-k">Predicted Tactic</span><span class="mitre-v"
+              id="mitre-tactic">—</span></div>
+          <div class="mitre-row"><span class="mitre-k">Technique</span><span class="mitre-v"
+              id="mitre-technique">—</span></div>
+          <div class="mitre-row"><span class="mitre-k">Severity</span><span class="mitre-v" id="mitre-severity">—</span>
+          </div>
+          <div class="mitre-row"><span class="mitre-k">Next Stage</span><span class="mitre-v" id="mitre-next">—</span>
+          </div>
         </div>
       </div>
 
@@ -166,10 +179,19 @@
         <div class="alert-table-wrap">
           <table class="alert-table">
             <thead>
-              <tr><th>Time</th><th>Scenario</th><th>Risk</th><th>Level</th><th>Tactic</th><th>Max P</th></tr>
+              <tr>
+                <th>Time</th>
+                <th>Scenario</th>
+                <th>Risk</th>
+                <th>Level</th>
+                <th>Tactic</th>
+                <th>Max P</th>
+              </tr>
             </thead>
             <tbody id="alert-tbody">
-              <tr class="empty-row"><td colspan="6">No alerts yet — monitoring live traffic…</td></tr>
+              <tr class="empty-row">
+                <td colspan="6">No alerts yet — monitoring live traffic…</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -239,7 +261,7 @@
       <div class="logo-icon modal-icon">⬡</div>
       <h2>Analyze PCAP Capture</h2>
       <p>Upload a .pcap file to generate an AI network attack forecast.</p>
-      
+
       <div class="upload-dropzone" id="upload-dropzone">
         <span class="upload-icon">📁</span>
         <span class="upload-text">Drag & Drop PCAP here or <strong>Browse</strong></span>
@@ -250,11 +272,12 @@
         <div class="status-dot pulsing"></div>
         <span id="upload-status-text">Processing with Zeek & AI Models...</span>
       </div>
-      
+
       <div class="upload-error" id="upload-error"></div>
     </div>
   </div>
 
   <script src="app.js"></script>
 </body>
+
 </html>
