@@ -31,3 +31,10 @@ scapy>=2.5.0             # CICFlow feature extraction
 
 # ── Testing ─────────────────────────────────────────────────────────
 pytest>=9.1.1
+
+# ── Database & Auth ─────────────────────────────────────────────────
+motor>=3.3.2
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+email-validator>=2.1.0
+python-dotenv>=1.0.0

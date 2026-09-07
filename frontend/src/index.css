@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface-0 text-text-primary font-sans;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-surface-1; }
+  ::-webkit-scrollbar-thumb { @apply bg-border-emphasis rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-text-muted; }
+
+  ::selection { @apply bg-forecast-dim text-text-primary; }
+
+  *:focus-visible {
+    outline: 2px solid #a78bfa;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ── Card ─────────────────────────────────────────── */
+  .card {
+    @apply bg-surface-2 border border-border-subtle rounded-lg;
+  }
+  .card-sm { @apply bg-surface-2 border border-border-subtle rounded; }
+  .card-header { @apply flex items-center justify-between px-4 py-3 border-b border-border-subtle; }
+  .card-title { @apply text-xs font-semibold tracking-widest uppercase text-text-secondary; }
+  .card-body { @apply p-4; }
+
+  /* ── Sidebar ──────────────────────────────────────── */
+  .sidebar {
+    @apply bg-surface-1 border-r border-border-subtle flex flex-col;
+    width: 240px;
+    min-height: 100vh;
+    transition: width 0.2s ease;
+  }
+  .sidebar.collapsed { width: 56px; }
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded text-text-secondary text-sm
+           hover:bg-surface-3 hover:text-text-primary transition-colors duration-150 cursor-pointer;
+  }
+  .sidebar-item.active {
+    @apply bg-surface-4 text-text-primary;
+  }
+  .sidebar-item.active .sidebar-icon { @apply text-forecast; }
+  .sidebar-section { @apply px-3 mt-4 mb-1 text-[10px] font-semibold tracking-widest uppercase text-text-disabled; }
+
+  /* ── Badge ────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase;
+  }
+  .badge-critical { @apply badge bg-critical-bg text-critical border border-critical-dim; }
+  .badge-warning  { @apply badge bg-warning-bg  text-warning  border border-warning-dim; }
+  .badge-elevated { @apply badge bg-elevated-bg text-elevated border border-elevated-dim; }
+  .badge-safe     { @apply badge bg-safe-bg     text-safe     border border-safe-dim; }
+  .badge-info     { @apply badge bg-info-bg     text-info     border border-info-dim; }
+  .badge-forecast { @apply badge bg-forecast-bg text-forecast border border-forecast-dim; }
+  .badge-muted    { @apply badge bg-surface-3   text-text-muted border border-border-subtle; }
+
+  /* ── KPI Card ─────────────────────────────────────── */
+  .kpi-card {
+    @apply card p-4 flex flex-col gap-2;
+  }
+
+  /* ── Table ────────────────────────────────────────── */
+  .data-table { @apply w-full border-collapse text-sm; }
+  .data-table thead th {
+    @apply px-3 py-2 text-left text-[10px] font-semibold tracking-widest uppercase
+           text-text-muted border-b border-border-subtle bg-surface-1 sticky top-0;
+  }
+  .data-table tbody tr {
+    @apply border-b border-border-subtle hover:bg-surface-3 transition-colors duration-100;
+  }
+  .data-table tbody td { @apply px-3 py-2 text-text-secondary; }
+
+  /* ── Button ───────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded text-sm font-medium
+           transition-all duration-150 cursor-pointer border;
+  }
+  .btn-primary {
+    @apply btn bg-forecast-dim border-forecast-dim text-forecast-bright
+           hover:bg-forecast hover:text-surface-0 hover:border-forecast;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-3 border-border-emphasis text-text-secondary
+           hover:bg-surface-4 hover:text-text-primary;
+  }
+  .btn-danger {
+    @apply btn bg-critical-bg border-critical-dim text-critical
+           hover:bg-critical hover:text-white;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent border-transparent text-text-secondary
+           hover:bg-surface-3 hover:text-text-primary;
+  }
+  .btn-sm { @apply px-3 py-1 text-xs rounded; }
+  .btn-xs { @apply px-2 py-0.5 text-[11px] rounded; }
+  .btn:disabled { @apply opacity-40 cursor-not-allowed; }
+
+  /* ── Input ────────────────────────────────────────── */
+  .input {
+    @apply bg-surface-3 border border-border-default text-text-primary rounded px-3 py-2 text-sm
+           placeholder:text-text-disabled focus:outline-none focus:border-forecast
+           transition-colors duration-150 w-full;
+  }
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  /* ── Status Dot ───────────────────────────────────── */
+  .status-dot { @apply w-2 h-2 rounded-full inline-block; }
+  .status-online  { @apply status-dot bg-safe; }
+  .status-warning { @apply status-dot bg-elevated; }
+  .status-error   { @apply status-dot bg-critical; }
+  .status-pulse   { animation: statusPulse 2s ease-in-out infinite; }
+
+  /* ── Progress Bar ─────────────────────────────────── */
+  .progress-bar {
+    @apply h-1 bg-surface-4 rounded-full overflow-hidden;
+  }
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-700;
+  }
+
+  /* ── Skeleton ─────────────────────────────────────── */
+  .skeleton {
+    @apply bg-surface-3 rounded animate-pulse;
+  }
+
+  /* ── Mono text ────────────────────────────────────── */
+  .mono { @apply font-mono text-xs; }
+
+  /* ── Demo Banner ──────────────────────────────────── */
+  .demo-banner {
+    @apply flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold tracking-wider
+           uppercase border-b border-elevated-dim bg-elevated-bg text-elevated;
+  }
+
+  /* ── Forecast stage ───────────────────────────────── */
+  .stage-node {
+    @apply flex flex-col items-center gap-1;
+  }
+  .stage-circle {
+    @apply w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-bold;
+  }
+  .stage-observed  { @apply stage-circle border-safe bg-safe-bg text-safe; }
+  .stage-current   { @apply stage-circle border-elevated bg-elevated-bg text-elevated; }
+  .stage-forecast  { @apply stage-circle border-forecast bg-forecast-bg text-forecast; }
+  .stage-dormant   { @apply stage-circle border-border-default bg-surface-2 text-text-disabled; }
+
+  /* ── Tooltip ──────────────────────────────────────── */
+  .tooltip-wrap { @apply relative inline-flex; }
+  .tooltip-box {
+    @apply absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2
+           bg-surface-4 border border-border-emphasis rounded text-xs text-text-primary
+           whitespace-nowrap pointer-events-none opacity-0 transition-opacity duration-150;
+  }
+  .tooltip-wrap:hover .tooltip-box { @apply opacity-100; }
+}
+
+@layer utilities {
+  .text-gradient-forecast {
+    background: linear-gradient(135deg, #a78bfa 0%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .border-glow-forecast {
+    box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.3), inset 0 0 20px rgba(167, 139, 250, 0.05);
+  }
+  .border-glow-critical {
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(239, 68, 68, 0.05);
+  }
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Recharts overrides */
+.recharts-tooltip-wrapper { outline: none; }
+.recharts-default-tooltip {
+  background-color: #171d27 !important;
+  border: 1px solid #243040 !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+.recharts-tooltip-label { color: #94a3b8 !important; }
+
+/* React Router transition */
+.page-enter { animation: fadeIn 0.25s ease-out; }

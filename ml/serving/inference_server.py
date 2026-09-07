@@ -21,8 +21,13 @@ from pathlib import Path
 from typing import List, Optional
 import numpy as np
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+from ml.serving.database import connect_to_mongo, close_mongo_connection, db_instance, get_db
+from ml.serving.auth import get_current_user
+from ml.serving.routes_auth import router as auth_router
+from ml.serving.routes_api import router as api_router
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -50,7 +55,7 @@ BASE_DIR    = Path(__file__).resolve().parent.parent.parent
 PROC_DIR    = BASE_DIR / "data" / "processed"
 MODELS_DIR  = BASE_DIR / "models"
 WM_DIR      = BASE_DIR / "models" / "world_model"
-DASH_DIR    = BASE_DIR / "dashboard"
+
 METRICS_DIR = BASE_DIR / "results" / "metrics"
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -248,6 +253,9 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
+app.include_router(auth_router)
+app.include_router(api_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -255,14 +263,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve dashboard static files
-if DASH_DIR.exists():
-    app.mount("/dashboard", StaticFiles(directory=str(DASH_DIR), html=True), name="dashboard")
+
 
 
 @app.on_event("startup")
 async def startup_event():
-    load_model()
+    print("loading model"); load_model(); print("model loaded")
+    print("connecting mongo"); await connect_to_mongo(); print("mongo connected")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_mongo_connection()
 
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
@@ -284,9 +295,11 @@ class BatchInput(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
+    mongo_status = "connected" if db_instance.client is not None else "disconnected"
     return {
-        "status": "ok",
-        "model_loaded": _model is not None,
+        "status": "ok" if mongo_status == "connected" else "degraded",
+        "model": "GRU World Model" if _model is not None else "Not Loaded",
+        "mongodb": mongo_status,
         "timestamp": time.time(),
     }
 
@@ -630,7 +643,7 @@ def _analyze_pcap_sync(pcap_path: Path, original_filename: str) -> dict:
 
 
 @app.post("/api/analyze-pcap")
-async def analyze_pcap(file: UploadFile = File(...)):
+async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     """
     Upload a .pcap file for full AI-powered network attack analysis.
 
@@ -708,6 +721,55 @@ async def analyze_pcap(file: UploadFile = File(...)):
                 status_code=500,
                 detail="Internal analysis error. Check server logs for details.",
             )
+
+        # Save to MongoDB
+        if db is not None:
+            forecast_doc = {
+                "_id": uuid.uuid4().hex,
+                "user_id": current_user["id"],
+                "timestamp": datetime.utcnow(),
+                "source_type": "pcap",
+                "filename": original_filename,
+                "current_stage": result["current_state"]["risk_level"],
+                "current_risk": result["current_state"]["risk_score"],
+                "predicted_stage": result["mitre_progression"][0]["tactic"] if result["mitre_progression"] else None,
+                "predicted_probability": result["mitre_progression"][0]["probability"] if result["mitre_progression"] else None,
+                "forecast_horizon": 8,
+                "forecast_steps": result["forecast"],
+                "mitre_tactics": [m["tactic"] for m in result["mitre_progression"]],
+                "mitre_techniques": [m["technique"] for m in result["mitre_progression"]],
+                "explanation": result["top_saliency_features"],
+                "model_name": "GRU World Model"
+            }
+            await db["forecasts"].insert_one(forecast_doc)
+            
+            # Create an alert if risk is high or critical
+            if result["current_state"]["risk_level"] in ["HIGH", "CRITICAL"]:
+                alert_doc = {
+                    "_id": uuid.uuid4().hex,
+                    "user_id": current_user["id"],
+                    "timestamp": datetime.utcnow(),
+                    "severity": 4 if result["current_state"]["risk_level"] == "HIGH" else 5,
+                    "current_stage": result["current_state"]["risk_level"],
+                    "predicted_stage": forecast_doc["predicted_stage"],
+                    "risk_score": forecast_doc["current_risk"],
+                    "probability": forecast_doc["predicted_probability"],
+                    "mitre_tactic": forecast_doc["predicted_stage"],
+                    "status": "new"
+                }
+                await db["alerts"].insert_one(alert_doc)
+                
+            # Create a network state record
+            state_doc = {
+                "_id": uuid.uuid4().hex,
+                "user_id": current_user["id"],
+                "timestamp": datetime.utcnow(),
+                "current_stage": result["current_state"]["risk_level"],
+                "risk_score": result["current_state"]["risk_score"],
+                "source": "pcap",
+                "forecast_id": forecast_doc["_id"]
+            }
+            await db["network_states"].insert_one(state_doc)
 
         return JSONResponse(content=result)
 

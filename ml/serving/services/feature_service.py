@@ -29,7 +29,8 @@ logger = logging.getLogger("omnisentinel.features")
 
 # ── Scapy — lazy import (large library, slow startup) ────────────────────────
 try:
-    from scapy.all import PcapReader, IP, TCP, UDP
+    from scapy.utils import PcapReader
+    from scapy.layers.inet import IP, TCP, UDP
     _SCAPY_OK = True
 except ImportError:
     _SCAPY_OK = False
