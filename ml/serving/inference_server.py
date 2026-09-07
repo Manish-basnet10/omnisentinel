@@ -20,6 +20,7 @@ import json, pickle, time, gc, asyncio, logging, shutil, tempfile, uuid
 from pathlib import Path
 from typing import List, Optional
 import numpy as np
+import pandas as pd
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -492,63 +493,106 @@ async def zeek_status():
     }
 
 
-def _analyze_pcap_sync(pcap_path: Path, original_filename: str) -> dict:
+def _analyze_file_sync(file_path: Path, original_filename: str) -> dict:
     """
-    Synchronous PCAP analysis pipeline — runs in a thread-pool executor so
-    the FastAPI event loop is never blocked.
-
-    Pipeline:
-      PCAP → Zeek (validation + conn.log) → scapy (60 features) →
-      XGBoost (per-flow binary) → GRU (K-step rollout) → JSON
+    Synchronous analysis pipeline — handles PCAP, PCAPNG, CSV, Parquet.
     """
     t_start = time.perf_counter()
     work_dir: Optional[Path] = None
+    suffix = file_path.suffix.lower()
 
     try:
-        # ── STEP 1: Zeek ─────────────────────────────────────────────────────
-        logger.info(f"[PCAP] Running Zeek on {original_filename}")
-        work_dir, zeek_stats = run_zeek(pcap_path)
+        if suffix in [".csv", ".parquet"]:
+            logger.info(f"[FILE] Loading dataframe from {original_filename}")
+            if suffix == ".parquet":
+                df = pd.read_parquet(file_path)
+            else:
+                df = pd.read_csv(file_path, low_memory=False)
 
-        # Parse conn.log for summary / cross-validation stats
-        conn_df = parse_conn_log(work_dir / "conn.log")
-        n_zeek_flows = len(conn_df)
-        logger.info(f"[PCAP] Zeek: {n_zeek_flows:,} flows in conn.log")
+            # Strip whitespace and lowercase all columns
+            df.columns = df.columns.str.strip().str.lower()
+            feat_cols_lower = [c.strip().lower() for c in _feat_cols]
 
-        # ── STEP 2: Feature extraction (scapy) ───────────────────────────────
-        logger.info("[PCAP] Extracting CICFlowMeter features (scapy)...")
-        if _feat_extractor is None:
-            raise RuntimeError(
-                "PCAPFeatureExtractor is not available (scapy not installed). "
-                "Install with: pip install scapy"
-            )
-        df = _feat_extractor.extract(pcap_path)
-        n_flows = len(df)
-        logger.info(f"[PCAP] Feature extraction complete: {n_flows:,} flows × {len(df.columns)} features")
+            # Drop label columns
+            for col in list(df.columns):
+                if col in ['label', 'attack', 'attack_type', 'class']:
+                    df.drop(columns=[col], inplace=True)
 
-        # ── STEP 3: Feature schema validation ────────────────────────────────
-        schema_report = _feat_extractor.validate_schema(df)
-        logger.info(f"[PCAP] Schema: {schema_report['schema']} "
-                    f"({schema_report['expected']} expected, "
-                    f"{schema_report['generated']} generated)")
-        if schema_report["missing"]:
-            logger.warning(f"[PCAP] Missing features (defaulted to 0): {schema_report['missing']}")
+            mapped_cols = {}
+            missing = []
+            for c, c_lower in zip(_feat_cols, feat_cols_lower):
+                if c_lower in df.columns:
+                    mapped_cols[c] = df[c_lower]
+                else:
+                    c_clean = ''.join(e for e in c_lower if e.isalnum())
+                    found = False
+                    for df_c in df.columns:
+                        if ''.join(e for e in df_c if e.isalnum()) == c_clean:
+                            mapped_cols[c] = df[df_c]
+                            found = True
+                            break
+                    if not found:
+                        missing.append(c)
+
+            if missing:
+                raise ValueError(f"File is missing {len(missing)} required features: {missing[:5]}...")
+
+            df = pd.DataFrame(mapped_cols)
+            df = df[_feat_cols]
+            df = df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+            n_flows = len(df)
+            logger.info(f"[FILE] Loaded {n_flows} rows from dataframe.")
+            duration_s = 0.0
+            schema_report = {"schema": "MATCH", "expected": len(_feat_cols), "generated": len(_feat_cols), "missing": [], "extra": [], "order_match": True}
+            xgb_summary = None
+            n_zeek_flows = n_flows
+            zeek_stats = {}
+            
+        else:
+            # ── STEP 1: Zeek ─────────────────────────────────────────────────────
+            logger.info(f"[PCAP] Running Zeek on {original_filename}")
+            work_dir, zeek_stats = run_zeek(file_path)
+
+            conn_df = parse_conn_log(work_dir / "conn.log")
+            n_zeek_flows = len(conn_df)
+            logger.info(f"[PCAP] Zeek: {n_zeek_flows:,} flows in conn.log")
+
+            # ── STEP 2: Feature extraction (scapy) ───────────────────────────────
+            logger.info("[PCAP] Extracting CICFlowMeter features (scapy)...")
+            if _feat_extractor is None:
+                raise RuntimeError("PCAPFeatureExtractor is not available (scapy not installed).")
+            df = _feat_extractor.extract(file_path)
+            n_flows = len(df)
+            logger.info(f"[PCAP] Feature extraction complete: {n_flows:,} flows × {len(df.columns)} features")
+
+            # ── STEP 3: Feature schema validation ────────────────────────────────
+            schema_report = _feat_extractor.validate_schema(df)
+            
+            # PCAP duration
+            duration_s = 0.0
+            if "ts" in conn_df.columns:
+                try:
+                    ts_vals = pd.to_numeric(conn_df["ts"], errors="coerce").dropna()
+                    if len(ts_vals) > 0:
+                        duration_s = round(float(ts_vals.max() - ts_vals.min()), 2)
+                except Exception:
+                    pass
+            xgb_summary = None # computed below
 
         # ── STEP 4: Preprocessing (existing scaler — transform only) ─────────
-        logger.info("[PCAP] Applying existing StandardScaler (transform only)...")
+        logger.info("[FILE] Applying existing StandardScaler (transform only)...")
         X_raw    = df.values.astype(np.float32)
         X_scaled = _scaler.transform(X_raw).astype(np.float32)
 
         # ── STEP 5: XGBoost per-flow binary classification ───────────────────
-        xgb_summary = None
-        if _xgb_binary is not None:
+        if _xgb_binary is not None and suffix in [".pcap", ".pcapng"]:
             logger.info("[PCAP] Running XGBoost binary classifier...")
-            # XGBoost was trained on raw (unscaled) features
             xgb_probs  = _xgb_binary.predict_proba(X_raw)[:, 1]
             xgb_preds  = (xgb_probs >= 0.5).astype(int)
             n_attack   = int(xgb_preds.sum())
             n_benign   = n_flows - n_attack
             mean_attack_prob = float(xgb_probs.mean())
-            logger.info(f"[PCAP] XGBoost: {n_attack}/{n_flows} flows flagged as ATTACK")
             xgb_summary = {
                 "total_flows":        n_flows,
                 "attack_flows":       n_attack,
@@ -556,25 +600,19 @@ def _analyze_pcap_sync(pcap_path: Path, original_filename: str) -> dict:
                 "attack_percentage":  round(100 * n_attack / n_flows, 1),
                 "mean_attack_prob":   round(mean_attack_prob, 4),
             }
-        else:
-            logger.warning("[PCAP] XGBoost not loaded — skipping per-flow analysis")
 
         # ── STEP 6: GRU sequence construction + K-step rollout ───────────────
-        logger.info("[PCAP] Constructing GRU sequences...")
+        logger.info("[FILE] Constructing GRU sequences...")
         if n_flows < SEQ_LEN:
-            # Pad with zeros if fewer than SEQ_LEN flows
             pad = np.zeros((SEQ_LEN - n_flows, X_scaled.shape[1]), dtype=np.float32)
             X_padded = np.vstack([pad, X_scaled])
-            logger.warning(
-                f"[PCAP] Only {n_flows} flows — padded to SEQ_LEN={SEQ_LEN} with zeros."
-            )
+            logger.warning(f"[FILE] Only {n_flows} flows — padded to SEQ_LEN={SEQ_LEN} with zeros.")
         else:
             X_padded = X_scaled
 
-        # Use the last SEQ_LEN flows as the "current state" sequence
-        last_seq = X_padded[-SEQ_LEN:]   # shape: (10, 60)
+        last_seq = X_padded[-SEQ_LEN:]
 
-        logger.info("[PCAP] Running GRU K-step rollout...")
+        logger.info("[FILE] Running GRU K-step rollout...")
         attack_probs, class_probs, next_states = _rollout(last_seq, K=ROLLOUT_K)
 
         # ── STEP 7: Risk + MITRE + saliency ──────────────────────────────────
@@ -583,28 +621,15 @@ def _analyze_pcap_sync(pcap_path: Path, original_filename: str) -> dict:
         mitre = _build_mitre_progression(class_probs)
         sal   = _gradient_saliency(last_seq, top_k=10)
 
-        # PCAP duration (from flow timestamps via Zeek)
-        duration_s = 0.0
-        if "ts" in conn_df.columns:
-            try:
-                ts_vals = pd.to_numeric(conn_df["ts"], errors="coerce").dropna()
-                if len(ts_vals) > 0:
-                    duration_s = round(float(ts_vals.max() - ts_vals.min()), 2)
-            except Exception:
-                pass
-
         n_windows = max(1, n_flows - SEQ_LEN + 1)
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 1)
-
-        logger.info(f"[PCAP] Risk: {rs} ({rl}) | Tactic k=1: {mitre[0]['tactic']}")
-        logger.info(f"[PCAP] Total processing time: {elapsed_ms}ms")
 
         return {
             "status": "success",
             "input": {
                 "filename":    original_filename,
-                "type":        "pcap",
-                "size_bytes":  pcap_path.stat().st_size,
+                "type":        suffix.strip("."),
+                "size_bytes":  file_path.stat().st_size,
             },
             "summary": {
                 "flows_analyzed":     n_flows,
@@ -624,9 +649,7 @@ def _analyze_pcap_sync(pcap_path: Path, original_filename: str) -> dict:
                 {
                     "step":        m["step"],
                     "attack_prob": round(float(attack_probs[m["step"] - 1]), 4),
-                    "risk_score":  round(
-                        _risk_score(attack_probs[:m["step"]], class_probs[:m["step"]]), 2
-                    ),
+                    "risk_score":  round(_risk_score(attack_probs[:m["step"]], class_probs[:m["step"]]), 2),
                 }
                 for m in mitre
             ],
@@ -636,41 +659,30 @@ def _analyze_pcap_sync(pcap_path: Path, original_filename: str) -> dict:
         }
 
     finally:
-        # Always clean up temp Zeek work directory
         if work_dir and work_dir.exists():
             shutil.rmtree(work_dir, ignore_errors=True)
-            logger.info(f"[PCAP] Cleaned up temp dir: {work_dir.name}")
 
 
 @app.post("/api/analyze-pcap")
 async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depends(get_current_user), db = Depends(get_db)):
-    """
-    Upload a .pcap file for full AI-powered network attack analysis.
-
-    Pipeline: PCAP → Zeek → CICFlow features → XGBoost (per-flow) →
-              GRU K-step rollout → Risk score → MITRE ATT&CK → Saliency → JSON
-
-    Returns a complete forecast JSON the frontend can render directly.
-    Max file size: 100 MB.
-    """
     if _model is None:
         raise HTTPException(status_code=503, detail="GRU model not loaded. Server is starting up.")
 
-    # ── File size guard (check Content-Length before reading) ────────────────
-    original_filename = file.filename or "upload.pcap"
-    logger.info(f"[PCAP] Upload received: {original_filename}")
+    original_filename = file.filename or "upload.file"
+    logger.info(f"[FILE] Upload received: {original_filename}")
 
-    # ── Save to secure temp file ──────────────────────────────────────────────
-    suffix  = Path(original_filename).suffix.lower() or ".pcap"
+    suffix  = Path(original_filename).suffix.lower()
+    if suffix not in [".pcap", ".pcapng", ".csv", ".parquet"]:
+        raise HTTPException(status_code=400, detail="Unsupported file extension.")
+        
     tmp_dir = Path(tempfile.mkdtemp(prefix="omnisentinel_upload_"))
-    pcap_path = tmp_dir / f"{uuid.uuid4().hex}{suffix}"
+    file_path = tmp_dir / f"{uuid.uuid4().hex}{suffix}"
 
     try:
-        # Stream file to disk (avoids loading entire file into memory)
         written = 0
-        with open(pcap_path, "wb") as out:
+        with open(file_path, "wb") as out:
             while True:
-                chunk = await file.read(1024 * 1024)   # 1 MB chunks
+                chunk = await file.read(1024 * 1024)
                 if not chunk:
                     break
                 written += len(chunk)
@@ -682,53 +694,32 @@ async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depend
                     )
                 out.write(chunk)
 
-        logger.info(f"[PCAP] Saved to temp: {pcap_path.name} ({written / 1024:.1f} KB)")
-
-        # ── Validate PCAP ────────────────────────────────────────────────────
         try:
-            validate_pcap(pcap_path)
-            logger.info("[PCAP] Validation passed")
+            if suffix in [".pcap", ".pcapng"]:
+                validate_pcap(file_path)
         except PCAPValidationError as exc:
             raise HTTPException(status_code=422, detail=f"Invalid PCAP: {exc}")
 
-        # ── Run full pipeline in thread pool (non-blocking) ──────────────────
         loop = asyncio.get_event_loop()
         try:
             result = await loop.run_in_executor(
                 None,
-                _analyze_pcap_sync,
-                pcap_path,
+                _analyze_file_sync,
+                file_path,
                 original_filename,
             )
-        except ZeekNotFoundError as exc:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Zeek not available: {exc}",
-            )
-        except ZeekExecutionError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Zeek processing failed: {exc}",
-            )
         except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Feature extraction failed: {exc}",
-            )
+            raise HTTPException(status_code=422, detail=f"Feature extraction failed: {exc}")
         except Exception as exc:
-            logger.exception(f"[PCAP] Unexpected error during analysis")
-            raise HTTPException(
-                status_code=500,
-                detail="Internal analysis error. Check server logs for details.",
-            )
+            logger.exception(f"[FILE] Unexpected error during analysis")
+            raise HTTPException(status_code=500, detail=str(exc))
 
-        # Save to MongoDB
         if db is not None:
             forecast_doc = {
                 "_id": uuid.uuid4().hex,
                 "user_id": current_user["id"],
                 "timestamp": datetime.utcnow(),
-                "source_type": "pcap",
+                "source_type": suffix.strip("."),
                 "filename": original_filename,
                 "current_stage": result["current_state"]["risk_level"],
                 "current_risk": result["current_state"]["risk_score"],
@@ -743,7 +734,6 @@ async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depend
             }
             await db["forecasts"].insert_one(forecast_doc)
             
-            # Create an alert if risk is high or critical
             if result["current_state"]["risk_level"] in ["HIGH", "CRITICAL"]:
                 alert_doc = {
                     "_id": uuid.uuid4().hex,
@@ -759,14 +749,13 @@ async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depend
                 }
                 await db["alerts"].insert_one(alert_doc)
                 
-            # Create a network state record
             state_doc = {
                 "_id": uuid.uuid4().hex,
                 "user_id": current_user["id"],
                 "timestamp": datetime.utcnow(),
                 "current_stage": result["current_state"]["risk_level"],
                 "risk_score": result["current_state"]["risk_score"],
-                "source": "pcap",
+                "source": suffix.strip("."),
                 "forecast_id": forecast_doc["_id"]
             }
             await db["network_states"].insert_one(state_doc)
@@ -774,7 +763,5 @@ async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depend
         return JSONResponse(content=result)
 
     finally:
-        # Clean up upload temp directory
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        logger.info("[PCAP] Upload temp dir cleaned up")
 

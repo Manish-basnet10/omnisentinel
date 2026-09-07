@@ -27,7 +27,7 @@ export default function TrafficAnalysis() {
   const [dragOver, setDragOver]             = useState(false);
 
   const handleFile = useCallback(async (file: File) => {
-    const allowed = ['.csv', '.pcap', '.pcapng'];
+    const allowed = ['.csv', '.parquet', '.pcap', '.pcapng'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowed.includes(ext)) {
       setUploadMsg(`Unsupported format. Allowed: ${allowed.join(', ')}`);
@@ -36,13 +36,19 @@ export default function TrafficAnalysis() {
     setUploading(true);
     setUploadDone(false);
     setUploadProgress(0);
-    const result = await uploadTrafficFile(file, (pct, stage) => {
-      setUploadProgress(pct);
-      setUploadStage(stage);
-    });
-    setUploading(false);
-    setUploadDone(true);
-    setUploadMsg(result.message);
+    setUploadMsg('');
+    try {
+      const result = await uploadTrafficFile(file, (pct, stage) => {
+        setUploadProgress(pct);
+        setUploadStage(stage);
+      });
+      setUploadDone(true);
+      setUploadMsg(result.message);
+    } catch (err: any) {
+      setUploadMsg(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -59,7 +65,7 @@ export default function TrafficAnalysis() {
       {/* Upload section */}
       <div className="mb-4">
         <Card>
-          <CardHeader title="Traffic File Upload" subtitle="Upload .csv, .pcap, or .pcapng for AI analysis" icon={<FileUp size={14} />} />
+          <CardHeader title="Traffic File Upload" subtitle="Upload .csv, .parquet, .pcap, or .pcapng for AI analysis" icon={<FileUp size={14} />} />
           <div className="p-4 space-y-4">
             {/* Workflow steps */}
             <div className="flex items-center gap-0 overflow-x-auto">
@@ -103,7 +109,7 @@ export default function TrafficAnalysis() {
               <input
                 id="file-input"
                 type="file"
-                accept=".csv,.pcap,.pcapng"
+                accept=".csv,.parquet,.pcap,.pcapng"
                 hidden
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
               />
@@ -111,7 +117,7 @@ export default function TrafficAnalysis() {
               <p className="text-sm text-text-secondary">
                 Drag & drop or <span className="text-forecast">browse</span> to upload
               </p>
-              <p className="text-[11px] text-text-muted mt-1">Supports .csv, .pcap, .pcapng · PCAP parsing done server-side</p>
+              <p className="text-[11px] text-text-muted mt-1">Supports .csv, .parquet, .pcap, .pcapng · PCAP parsing done server-side</p>
             </div>
 
             {/* Progress */}
