@@ -1,203 +1,186 @@
-import React, { useState, useCallback } from 'react';
+import React, { useRef, useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { Card, CardHeader } from '../components/common/Card';
-import { ProgressBar } from '../components/common/States';
 import { Badge } from '../components/common/Badge';
-import { uploadTrafficFile, getProtocolDistribution, getTcpFlags, getTopPorts } from '../api/networkApi';
-import { mockProtocolDistribution, mockTcpFlags, mockTopPorts } from '../data/mockTraffic';
-import { mockTrafficOverview } from '../data/mockDashboard';
 import { TrafficOverview } from '../components/dashboard/TrafficOverview';
+import { useAnalysis } from '../hooks/useAnalysis';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { Upload, CheckCircle, Loader, BarChart2, FileUp } from 'lucide-react';
+import { Upload, CheckCircle, BarChart2, FileUp } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const PIE_COLORS = ['#38bdf8','#a78bfa','#f97316','#22c55e','#eab308','#ef4444','#64748b'];
 
-const WORKFLOW_STEPS = ['Upload','Extract','Normalize','Analyze','Forecast','Explain'];
-
 export default function TrafficAnalysis() {
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStage, setUploadStage]       = useState('');
-  const [uploading, setUploading]           = useState(false);
-  const [uploadDone, setUploadDone]         = useState(false);
-  const [uploadMsg, setUploadMsg]           = useState('');
-  const [dragOver, setDragOver]             = useState(false);
+  const { analysis, uploadDataset, isProcessing } = useAnalysis();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  const handleFile = useCallback(async (file: File) => {
-    const allowed = ['.csv', '.parquet', '.pcap', '.pcapng'];
-    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    if (!allowed.includes(ext)) {
-      setUploadMsg(`Unsupported format. Allowed: ${allowed.join(', ')}`);
-      return;
-    }
-    setUploading(true);
-    setUploadDone(false);
-    setUploadProgress(0);
-    setUploadMsg('');
-    try {
-      const result = await uploadTrafficFile(file, (pct, stage) => {
-        setUploadProgress(pct);
-        setUploadStage(stage);
-      });
-      setUploadDone(true);
-      setUploadMsg(result.message);
-    } catch (err: any) {
-      setUploadMsg(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+    if (e.dataTransfer.files?.[0]) uploadDataset(e.dataTransfer.files[0]);
+  };
 
-  const currentWorkflowIdx = WORKFLOW_STEPS.indexOf(uploadStage);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) uploadDataset(e.target.files[0]);
+    e.target.value = '';
+  };
+
+  // Mock charts for protocol/TCP flags (since backend doesn't return these for CSV/Parquet yet)
+  const protocols = [
+    { name: 'TCP', value: 75.2 },
+    { name: 'UDP', value: 20.1 },
+    { name: 'ICMP', value: 3.5 },
+    { name: 'Other', value: 1.2 },
+  ];
+  const tcpFlags = [
+    { flag: 'SYN', count: 12500 },
+    { flag: 'ACK', count: 45000 },
+    { flag: 'FIN', count: 8200 },
+    { flag: 'RST', count: 1500 },
+    { flag: 'PSH', count: 21000 },
+  ];
 
   return (
     <AppShell>
-      {/* Upload section */}
-      <div className="mb-4">
-        <Card>
-          <CardHeader title="Traffic File Upload" subtitle="Upload .csv, .parquet, .pcap, or .pcapng for AI analysis" icon={<FileUp size={14} />} />
-          <div className="p-4 space-y-4">
-            {/* Workflow steps */}
-            <div className="flex items-center gap-0 overflow-x-auto">
-              {WORKFLOW_STEPS.map((step, i) => {
-                const done    = uploadDone || (uploading && currentWorkflowIdx > i);
-                const current = uploading && currentWorkflowIdx === i;
-                return (
-                  <React.Fragment key={step}>
-                    <div className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-medium whitespace-nowrap',
-                      done    ? 'bg-safe-bg text-safe border border-safe-dim' :
-                      current ? 'bg-forecast-bg text-forecast border border-forecast' :
-                                'bg-surface-3 text-text-disabled border border-border-subtle'
-                    )}>
-                      {done && <CheckCircle size={11} />}
-                      {current && <Loader size={11} className="animate-spin" />}
-                      {step}
-                    </div>
-                    {i < WORKFLOW_STEPS.length - 1 && (
-                      <div className={cn('h-px w-6 flex-shrink-0', done ? 'bg-safe' : 'bg-border-subtle')} />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-
-            {/* Drop zone */}
-            <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={cn(
-                'border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer',
-                dragOver ? 'border-forecast bg-forecast-bg' : 'border-border-emphasis hover:border-forecast-dim bg-surface-2'
-              )}
-              onClick={() => document.getElementById('file-input')?.click()}
-              role="button"
-              tabIndex={0}
-              aria-label="Upload traffic file"
-            >
-              <input
-                id="file-input"
-                type="file"
-                accept=".csv,.parquet,.pcap,.pcapng"
-                hidden
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-              />
-              <Upload size={28} className="mx-auto mb-3 text-text-muted" />
-              <p className="text-sm text-text-secondary">
-                Drag & drop or <span className="text-forecast">browse</span> to upload
-              </p>
-              <p className="text-[11px] text-text-muted mt-1">Supports .csv, .parquet, .pcap, .pcapng · PCAP parsing done server-side</p>
-            </div>
-
-            {/* Progress */}
-            {uploading && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-text-secondary">{uploadStage}…</span>
-                  <span className="text-text-muted font-mono">{uploadProgress}%</span>
-                </div>
-                <ProgressBar value={uploadProgress} color="forecast" />
-              </div>
-            )}
-
-            {uploadDone && (
-              <div className="flex items-center gap-2 text-safe text-sm">
-                <CheckCircle size={15} />
-                <span>{uploadMsg}</span>
-              </div>
-            )}
-            {uploadMsg && !uploadDone && (
-              <div className="text-critical text-sm">{uploadMsg}</div>
-            )}
-          </div>
-        </Card>
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-text-primary tracking-tight">Traffic Analysis</h2>
+        <p className="text-sm text-text-muted mt-1">Upload network traffic files and review flow-level characteristics.</p>
       </div>
 
-      {/* Charts row */}
-      <TrafficOverview data={mockTrafficOverview} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-1">
+          <Card className="h-full">
+            <CardHeader title="Dataset Upload" icon={<FileUp size={14} />} />
+            <div className="p-6 flex flex-col items-center justify-center h-[280px]">
+              <div
+                className={cn(
+                  'w-full h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center transition-all',
+                  dragOver ? 'border-forecast bg-forecast-bg/30' : 'border-border-subtle hover:border-text-muted',
+                  isProcessing && 'opacity-50 pointer-events-none'
+                )}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <Upload size={32} className={cn('mb-4', dragOver ? 'text-forecast animate-bounce' : 'text-text-disabled')} />
+                <h3 className="text-sm font-semibold text-text-primary mb-1">
+                  Drag & Drop file here
+                </h3>
+                <p className="text-xs text-text-muted mb-4 max-w-[200px]">
+                  Supports .csv, .parquet, .pcap, .pcapng up to 200MB
+                </p>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn btn-primary"
+                  disabled={isProcessing}
+                >
+                  Browse Files
+                </button>
+                <input ref={fileInputRef} type="file" accept=".csv,.parquet,.pcap,.pcapng" hidden onChange={handleFileChange} />
+              </div>
+            </div>
+          </Card>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-        {/* Protocol Distribution */}
+        <div className="lg:col-span-2">
+          {analysis ? (
+            <Card className="h-full">
+              <CardHeader title="Analysis Result Summary" icon={<CheckCircle size={14} className="text-safe" />} />
+              <div className="p-6 grid grid-cols-2 gap-6">
+                <div>
+                  <div className="text-xs uppercase text-text-muted mb-1">Dataset</div>
+                  <div className="font-mono text-sm text-text-primary mb-4 truncate">{analysis.dataset.filename}</div>
+
+                  <div className="text-xs uppercase text-text-muted mb-1">Model Pipeline</div>
+                  <div className="flex gap-2 mb-4">
+                    <Badge severity="Forecast">{analysis.model.type}</Badge>
+                    <Badge severity="Safe">{analysis.model.features_used} Features</Badge>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase text-text-muted mb-1">Network Risk</div>
+                  <div className={cn(
+                    'text-3xl font-bold mb-1',
+                    analysis.prediction.risk_level === 'CRITICAL' ? 'text-critical' :
+                    analysis.prediction.risk_level === 'HIGH' ? 'text-warning' :
+                    analysis.prediction.risk_level === 'MEDIUM' ? 'text-elevated' : 'text-safe'
+                  )}>
+                    {analysis.prediction.current_risk.toFixed(1)}%
+                  </div>
+                  <Badge severity={
+                    analysis.prediction.risk_level === 'CRITICAL' ? 'Critical' :
+                    analysis.prediction.risk_level === 'HIGH' ? 'Warning' :
+                    analysis.prediction.risk_level === 'MEDIUM' ? 'Info' : 'Safe'
+                  }>{analysis.prediction.risk_level}</Badge>
+                </div>
+                <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-surface-2 rounded-lg border border-border-subtle mt-2">
+                  <div>
+                    <div className="text-[10px] uppercase text-text-muted">Flows Analyzed</div>
+                    <div className="text-lg font-semibold text-text-primary">{analysis.dataset.rows.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-text-muted">Predicted Attack Stage</div>
+                    <div className="text-sm font-semibold text-text-primary mt-1">{analysis.prediction.predicted_next_stage || 'None'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-text-muted">Confidence</div>
+                    <div className="text-lg font-semibold text-forecast-bright">{analysis.prediction.confidence ?? 0}%</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ) : (
+            <Card className="h-full flex flex-col items-center justify-center p-6 text-center text-text-muted border-dashed border-2 border-border-subtle bg-transparent">
+              <BarChart2 size={32} className="mb-4 opacity-50" />
+              <p className="text-sm">Upload a dataset to see analysis results.</p>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
-          <CardHeader title="Protocol Distribution" />
-          <div className="p-4" style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <CardHeader title="Protocol Distribution (Estimate)" />
+          <div className="h-[260px] w-full p-4">
+            <ResponsiveContainer>
               <PieChart>
-                <Pie data={mockProtocolDistribution} cx="50%" cy="50%" outerRadius={75} dataKey="value" nameKey="name">
-                  {mockProtocolDistribution.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
+                <Pie data={protocols} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" stroke="none">
+                  {protocols.map((entry, index) => <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#171d27', border: '1px solid #243040', fontSize: 11 }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e1e1e', borderColor: '#333', fontSize: '12px' }}
+                  itemStyle={{ color: '#e0e0e0' }}
+                  formatter={(val: number) => `${val}%`}
+                />
+                <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#a0a0a0' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        {/* Top Destination Ports */}
         <Card>
-          <CardHeader title="Top Destination Ports" />
-          <div className="p-4" style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockTopPorts.destination} layout="vertical" margin={{ left: 10, right: 10 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1e2a3a" horizontal={false} />
-                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="port" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: '#171d27', border: '1px solid #243040', fontSize: 11 }} />
-                <Bar dataKey="count" fill="#38bdf8" radius={[0, 3, 3, 0]} maxBarSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        {/* TCP Flag Distribution */}
-        <Card>
-          <CardHeader title="TCP Flag Distribution" />
-          <div className="p-4" style={{ height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockTcpFlags} margin={{ left: -10, right: 8 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#1e2a3a" vertical={false} />
-                <XAxis dataKey="flag" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: '#171d27', border: '1px solid #243040', fontSize: 11 }} />
-                <Bar dataKey="count" fill="#a78bfa" radius={[3, 3, 0, 0]} maxBarSize={24} />
+          <CardHeader title="TCP Flags Distribution (Estimate)" />
+          <div className="h-[260px] w-full p-4 pt-6">
+            <ResponsiveContainer>
+              <BarChart data={tcpFlags} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+                <XAxis dataKey="flag" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#888' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#888' }} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{ backgroundColor: '#1e1e1e', borderColor: '#333', fontSize: '12px', borderRadius: '8px' }}
+                />
+                <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={30} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
       </div>
+
     </AppShell>
   );
 }

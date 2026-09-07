@@ -40,41 +40,7 @@ export async function getTcpFlags() {
   return mockTcpFlags;
 }
 
-// POST /traffic/upload — hits the real inference server
-export async function uploadTrafficFile(
-  file: File,
-  onProgress: (pct: number, stage: string) => void
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    // Quick progress updates just for UX since axios upload progress only covers the file upload phase, not processing.
-    onProgress(10, 'Uploading');
-    
-    await client.post('/api/analyze-pcap', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        if (progressEvent.total) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          if (percentCompleted < 100) {
-            onProgress(Math.max(10, percentCompleted / 2), 'Uploading');
-          } else {
-            onProgress(50, 'Analyzing');
-          }
-        }
-      }
-    });
-    
-    onProgress(100, 'Complete');
-    return { success: true, message: `Analysis complete — ${file.name} processed successfully.` };
-  } catch (error: any) {
-    throw new Error(error.message || 'Upload failed');
-  }
-}
-
+// uploadTrafficFile is now removed, handled by useAnalysis in the global provider
 // Live update simulation
 export function subscribeToLiveFlows(callback: (flows: ReturnType<typeof generateFlows>) => void) {
   const interval = setInterval(() => {

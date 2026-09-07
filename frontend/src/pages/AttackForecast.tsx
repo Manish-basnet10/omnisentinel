@@ -1,26 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppShell } from '../components/layout/AppShell';
 import { Card, CardHeader } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { ProgressBar, Spinner } from '../components/common/States';
-import { getLatestForecast, runForecast } from '../api/forecastApi';
-import { mockForecastSteps } from '../data/mockForecast';
-import { Zap, CheckCircle, Loader, Play, ArrowRight, FlaskConical } from 'lucide-react';
+import { useAnalysis } from '../hooks/useAnalysis';
+import { Zap, Play, ArrowRight, BarChart2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { confidenceLabel } from '../utils/formatters';
-
-type Horizon = 1 | 3 | 5 | 10;
-const HORIZONS: Horizon[] = [1, 3, 5, 10];
-
-const PIPELINE_STEPS = [
-  'Collecting network state',
-  'Processing temporal sequence',
-  'Running model',
-  'Generating forecast',
-  'Calculating confidence',
-  'Generating explanation',
-];
 
 const STAGE_COLOR: Record<string, string> = {
   Reconnaissance: '#f97316',
@@ -33,47 +20,83 @@ const STAGE_COLOR: Record<string, string> = {
   Benign: '#22c55e',
 };
 
+// Map backend forecast to UI shape
+function transformForecast(analysis: any, horizon: number) {
+  if (!analysis) return { steps: [], overallRisk: 0 };
+  
+  const currentRisk = analysis.prediction.current_risk;
+  const currentStage = analysis.mitre_progression[0]?.tactic || 'Unknown';
+  
+  const steps = [];
+  
+  // Now step
+  steps.push({
+    horizon: 'Now',
+    stage: currentStage,
+    riskScore: Math.round(currentRisk),
+    probability: 100, // already observed
+    confidence: Math.round(analysis.prediction.confidence || 0),
+    description: 'Current network state.',
+    trafficPattern: 'Observed traffic pattern',
+  });
+
+  // Future steps
+  const backendForecast = analysis.forecast || [];
+  const limit = Math.min(horizon, backendForecast.length);
+  
+  for (let i = 0; i < limit; i++) {
+    const f = backendForecast[i];
+    steps.push({
+      horizon: `+${i + 1}`,
+      stage: f.mitre_stage || analysis.prediction.predicted_next_stage || 'Unknown',
+      riskScore: Math.round(f.risk_score || currentRisk),
+      probability: Math.round(f.probability ? f.probability * 100 : analysis.prediction.attack_probability * 100),
+      confidence: Math.round(f.confidence ? f.confidence * 100 : analysis.prediction.confidence),
+      description: `Model prediction for t+${i+1}`,
+      trafficPattern: 'Predicted pattern',
+    });
+  }
+  
+  const lastStepRisk = steps.length > 1 ? steps[steps.length - 1].riskScore : currentRisk;
+
+  return {
+    steps,
+    overallRisk: lastStepRisk,
+    runAt: analysis.created_at,
+  };
+}
+
 export default function AttackForecast() {
-  const [horizon, setHorizon] = useState<Horizon>(5);
-  const [running, setRunning] = useState(false);
-  const [pipelineStep, setPipelineStep] = useState(-1);
-  const [forecast, setForecast] = useState<any>(() => ({
-    steps: mockForecastSteps[5],
-    horizon: 5,
-    overallRisk: 78,
-    runAt: new Date().toISOString(),
-  }));
+  const { analysis } = useAnalysis();
+  const [horizon, setHorizon] = useState<number>(5);
   const [simulating, setSimulating] = useState(false);
   const [simStep, setSimStep] = useState(-1);
 
-  const handleRunForecast = useCallback(async () => {
-    if (running) return;
-    setRunning(true);
-    setPipelineStep(0);
-    const { steps } = await runForecast(horizon);
-    for (let i = 0; i < steps.length; i++) {
-      setPipelineStep(i);
-      await new Promise(r => setTimeout(r, steps[i].duration));
-    }
-    const result = await getLatestForecast(horizon);
-    setForecast(result);
-    setRunning(false);
-    setPipelineStep(-1);
-  }, [horizon, running]);
+  if (!analysis) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center">
+          <BarChart2 size={48} className="text-text-disabled mb-4" />
+          <h2 className="text-xl font-bold text-text-primary mb-2">No Dataset Uploaded</h2>
+          <p className="text-text-muted">Upload a dataset to generate an attack forecast.</p>
+        </div>
+      </AppShell>
+    );
+  }
 
-  const handleSimulate = useCallback(async () => {
+  const forecast = transformForecast(analysis, horizon);
+  const steps = forecast.steps;
+
+  const handleSimulate = async () => {
     if (simulating) return;
     setSimulating(true);
-    const steps = forecast.steps || [];
     for (let i = 0; i < steps.length; i++) {
       setSimStep(i);
       await new Promise(r => setTimeout(r, 700));
     }
     setSimulating(false);
     setSimStep(-1);
-  }, [simulating, forecast.steps]);
-
-  const steps = forecast?.steps || [];
+  };
 
   return (
     <AppShell>
@@ -82,13 +105,13 @@ export default function AttackForecast() {
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-xl font-bold text-text-primary tracking-tight">ATTACK FORECAST ENGINE</h2>
-            <p className="text-sm text-text-muted mt-1">Predicting where the current network trajectory is heading.</p>
-            <Badge severity="Forecast" dot className="mt-2">Model Estimate · Demo Data</Badge>
+            <p className="text-sm text-text-muted mt-1">Predicting where the current network trajectory is heading based on the active dataset.</p>
+            <Badge severity="Forecast" dot className="mt-2">Live Model Output</Badge>
           </div>
           <div className="flex items-center gap-2">
             {/* Horizon selector */}
             <div className="flex items-center gap-1 bg-surface-2 border border-border-subtle rounded p-1">
-              {HORIZONS.map(h => (
+              {[1, 3, 5, 8].map(h => (
                 <button
                   key={h}
                   onClick={() => setHorizon(h)}
@@ -101,15 +124,6 @@ export default function AttackForecast() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={handleRunForecast}
-              disabled={running}
-              className="btn btn-primary"
-              id="run-forecast-full-btn"
-            >
-              {running ? <Loader size={13} className="animate-spin" /> : <Zap size={13} />}
-              {running ? 'Running…' : 'Run Forecast'}
-            </button>
           </div>
         </div>
       </div>
@@ -118,51 +132,22 @@ export default function AttackForecast() {
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="card p-4">
           <div className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Current Risk</div>
-          <div className="text-3xl font-bold text-warning">72%</div>
-          <ProgressBar value={72} color="warning" className="mt-2" />
+          <div className="text-3xl font-bold text-warning">{Math.round(analysis.prediction.current_risk)}%</div>
+          <ProgressBar value={analysis.prediction.current_risk} color="warning" className="mt-2" />
         </div>
         <div className="card p-4 border-glow-forecast">
-          <div className="text-[10px] text-forecast uppercase tracking-widest mb-1">Forecast Risk</div>
+          <div className="text-[10px] text-forecast uppercase tracking-widest mb-1">Forecast Risk (+{horizon})</div>
           <div className="text-3xl font-bold text-forecast-bright">{forecast.overallRisk}%</div>
           <ProgressBar value={forecast.overallRisk} color="forecast" className="mt-2" />
         </div>
         <div className="card p-4">
           <div className="text-[10px] text-text-muted uppercase tracking-widest mb-1">Confidence</div>
           <div className="text-3xl font-bold text-text-primary">
-            {steps[0]?.confidence ?? 88}%
+            {steps[0]?.confidence ?? 0}%
           </div>
-          <div className="text-[11px] text-text-muted mt-1">{confidenceLabel(steps[0]?.confidence ?? 88)}</div>
+          <div className="text-[11px] text-text-muted mt-1">{confidenceLabel(steps[0]?.confidence ?? 0)}</div>
         </div>
       </div>
-
-      {/* Pipeline status */}
-      <AnimatePresence>
-        {running && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="card p-4 mb-4 overflow-hidden"
-          >
-            <div className="text-xs font-semibold text-text-secondary mb-3">Running inference pipeline…</div>
-            <div className="grid grid-cols-3 gap-2">
-              {PIPELINE_STEPS.map((step, i) => (
-                <div key={step} className={cn(
-                  'flex items-center gap-2 px-3 py-2 rounded text-[11px] border',
-                  i < pipelineStep ? 'bg-safe-bg border-safe-dim text-safe' :
-                  i === pipelineStep ? 'bg-forecast-bg border-forecast text-forecast-bright' :
-                  'bg-surface-2 border-border-subtle text-text-disabled'
-                )}>
-                  {i < pipelineStep  && <CheckCircle size={11} />}
-                  {i === pipelineStep && <Loader size={11} className="animate-spin" />}
-                  {i > pipelineStep  && <span className="w-3 h-3 rounded-full border border-current opacity-30" />}
-                  {step}
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Forecast Trajectory */}
       <Card className="mb-4">
@@ -172,7 +157,7 @@ export default function AttackForecast() {
           icon={<Zap size={14} />}
           right={
             <span className="text-[10px] text-text-muted font-mono">
-              Updated: {new Date(forecast.runAt).toLocaleTimeString('en-GB', { hour12: false })}
+              Model: {analysis.model.type}
             </span>
           }
         />
@@ -201,7 +186,7 @@ export default function AttackForecast() {
           icon={<Play size={14} />}
           right={
             <button onClick={handleSimulate} disabled={simulating} className="btn btn-secondary btn-sm">
-              {simulating ? <Loader size={12} className="animate-spin" /> : <Play size={12} />}
+              {simulating ? <Spinner size={12} /> : <Play size={12} />}
               {simulating ? 'Simulating…' : 'Simulate Future'}
             </button>
           }
@@ -210,7 +195,6 @@ export default function AttackForecast() {
           <div className="flex items-stretch gap-3 min-w-max">
             {steps.map((step: any, i: number) => {
               const active = simulating && i <= simStep;
-              const past = !simulating && simStep === -1 && i === 0;
               return (
                 <motion.div
                   key={step.horizon}
@@ -231,7 +215,6 @@ export default function AttackForecast() {
                       <span className="text-text-secondary">{step.riskScore}%</span>
                     </div>
                     <ProgressBar value={step.riskScore} color={step.riskScore >= 80 ? 'critical' : step.riskScore >= 65 ? 'warning' : 'forecast'} />
-                    <div className="text-[10px] text-text-muted">{step.trafficPattern}</div>
                   </div>
                   {step.horizon !== 'Now' && (
                     <div className="text-[10px] text-forecast">
@@ -242,10 +225,6 @@ export default function AttackForecast() {
               );
             })}
           </div>
-          <p className="text-[10px] text-text-muted mt-3 flex items-center gap-1">
-            <FlaskConical size={10} />
-            Demo Data — Simulated autoregressive rollout. Not real model output.
-          </p>
         </div>
       </Card>
     </AppShell>

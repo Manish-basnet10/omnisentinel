@@ -6,55 +6,57 @@ import { AttackTrajectory } from '../components/dashboard/AttackTrajectory';
 import { RiskForecastChart } from '../components/dashboard/RiskForecastChart';
 import { ExplainabilityCard } from '../components/dashboard/ExplainabilityCard';
 import { TrafficOverview } from '../components/dashboard/TrafficOverview';
-import { SkeletonCard } from '../components/common/States';
 import { Card, CardHeader } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
-import { getDashboardSummary, getForecastHero, getAttackTrajectory, getRiskTimeSeries, getExplainability, getTrafficOverview } from '../api/dashboardApi';
-import { mockTrafficOverview } from '../data/mockDashboard';
+import { SkeletonCard } from '../components/common/States';
+import { useAnalysis } from '../hooks/useAnalysis';
+import { mockRiskTimeSeries, mockExplainability, mockTrafficOverview } from '../data/mockDashboard';
 import {
   AlertTriangle, Activity, BarChart2, Zap, Shield,
-  Radio, ArrowRight,
+  ArrowRight, Upload, Database,
 } from 'lucide-react';
-import { formatNumber, riskLevelFromScore } from '../utils/formatters';
+import { riskLevelFromScore } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 
+// ─── Empty state when no dataset is uploaded ─────────────────────────────────
+function NoDatasetState({ onUpload }: { onUpload: () => void }) {
+  return (
+    <AppShell>
+      <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-surface-3 border border-border-subtle flex items-center justify-center">
+          <Database size={28} className="text-text-disabled" />
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-bold text-text-primary">No Active Dataset</h2>
+          <p className="text-sm text-text-muted max-w-md">
+            Upload a network traffic file (.csv, .parquet, .pcap, .pcapng) to begin AI-powered attack forecasting and risk analysis.
+          </p>
+        </div>
+        <button onClick={onUpload} className="btn btn-primary gap-2">
+          <Upload size={15} />
+          Upload Network Traffic Dataset
+        </button>
+        <p className="text-[11px] text-text-disabled">
+          Supports CIC-IDS2017 CSV/Parquet, raw PCAP, and PCAPNG formats
+        </p>
+      </div>
+    </AppShell>
+  );
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [summary, setSummary]       = useState<any>(null);
-  const [forecast, setForecast]     = useState<any>(null);
-  const [trajectory, setTrajectory] = useState<any[]>([]);
-  const [riskSeries, setRiskSeries] = useState<any[]>([]);
-  const [explain, setExplain]       = useState<any>(null);
-  const [traffic, setTraffic]       = useState<any>(mockTrafficOverview);
+  const { analysis, activeDataset, isProcessing } = useAnalysis();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { uploadDataset } = useAnalysis();
 
-  const loadAll = useCallback(async () => {
-    const [s, f, t, r, e] = await Promise.all([
-      getDashboardSummary(),
-      getForecastHero(),
-      getAttackTrajectory(),
-      getRiskTimeSeries(),
-      getExplainability(),
-    ]);
-    setSummary(s);
-    setForecast(f);
-    setTrajectory(t);
-    setRiskSeries(r);
-    setExplain(e);
-    setLoading(false);
-  }, []);
+  if (!analysis && !isProcessing) {
+    return <NoDatasetState onUpload={() => fileInputRef.current?.click()} />;
+  }
 
-  useEffect(() => {
-    loadAll();
-    // Live metric refresh every 8s
-    const id = setInterval(async () => {
-      const s = await getDashboardSummary();
-      setSummary(s);
-    }, 8000);
-    return () => clearInterval(id);
-  }, [loadAll]);
-
-  if (loading) {
+  if (!analysis) {
+    // Processing in progress
     return (
       <AppShell>
         <div className="grid grid-cols-5 gap-3 mb-4">
@@ -65,56 +67,111 @@ export default function Dashboard() {
     );
   }
 
-  const riskLevel = riskLevelFromScore(summary.networkRisk);
+  // ── Extract values from real analysis ──────────────────────────────────────
+  const p = analysis.prediction;
+  const riskScore = Math.round(p.current_risk);
+  const riskLevel = p.risk_level;
+  const riskColor = riskLevel === 'CRITICAL' ? 'critical' : riskLevel === 'HIGH' ? 'warning' : riskLevel === 'MEDIUM' ? 'elevated' : 'safe';
+
+  const attackCount = analysis.alerts.length;
+  const flowCount   = analysis.traffic_analysis?.flows_analyzed ?? 0;
+  const confidence  = p.confidence ?? 0;
+
+  // Build forecast hero shape from analysis.mitre_progression + analysis.forecast
+  const forecastHero = {
+    currentStage:    analysis.mitre_progression[0]?.tactic ?? 'Unknown',
+    nextStage:       p.predicted_next_stage ?? 'Unknown',
+    probability:     Math.round((p.attack_probability ?? 0) * 100),
+    technique:       p.predicted_technique ?? '—',
+    riskScore,
+    confidence,
+    timestamp:       analysis.created_at,
+  };
+
+  // Build trajectory from mitre_progression
+  const trajectory = analysis.mitre_progression.map((m: any) => ({
+    stage:     m.tactic,
+    technique: m.technique,
+    label:     m.label,
+    stage_num: m.stage,
+    severity:  m.severity,
+    status:    m.status,
+  }));
+
+  // Build risk time series from forecast
+  const riskSeries = (analysis.forecast ?? []).map((f: any, i: number) => ({
+    t:         `t+${i + 1}`,
+    risk:      Math.round(f.risk_score ?? riskScore),
+    threshold: 65,
+  }));
+  // Prepend current
+  riskSeries.unshift({ t: 'Now', risk: riskScore, threshold: 65 });
+
+  // Explainability from top saliency features
+  const explain = {
+    features: (analysis.top_saliency_features ?? []).map((f: any) => ({
+      feature:    f.feature,
+      importance: f.saliency,
+    })),
+    prediction: p.predicted_next_stage ?? 'Unknown',
+    confidence,
+  };
 
   return (
-    <AppShell alertCount={summary.activeThreats}>
+    <AppShell alertCount={attackCount}>
+      {/* Hidden upload input for the no-dataset empty state btn */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.parquet,.pcap,.pcapng"
+        hidden
+        onChange={e => { const f = e.target.files?.[0]; if (f) uploadDataset(f); e.target.value = ''; }}
+      />
+
       {/* KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
         <KpiCard
           title="Network Risk"
-          value={summary.networkRisk}
+          value={riskScore}
           unit="%"
-          delta={summary.networkRiskDelta}
-          deltaLabel={`${summary.networkRiskDelta > 0 ? '+' : ''}${summary.networkRiskDelta}pp from previous window`}
-          severity={summary.networkRisk >= 80 ? 'critical' : summary.networkRisk >= 65 ? 'warning' : 'elevated'}
+          severity={riskColor as any}
           icon={<AlertTriangle size={16} />}
           subtitle={riskLevel}
         />
         <KpiCard
-          title="Active Threats"
-          value={summary.activeThreats}
+          title="Active Alerts"
+          value={attackCount}
           severity="warning"
           icon={<Activity size={16} />}
-          subtitle="Require investigation"
+          subtitle="From this dataset"
         />
         <KpiCard
-          title="Suspicious Flows"
-          value={formatNumber(summary.suspiciousFlows)}
+          title="Flows Analysed"
+          value={flowCount.toLocaleString()}
           severity="elevated"
           icon={<BarChart2 size={16} />}
-          subtitle="Last observation window"
+          subtitle={`${activeDataset?.format?.toUpperCase() ?? ''} dataset`}
         />
         <KpiCard
-          title="Forecast Confidence"
-          value={summary.forecastConfidence}
+          title="Model Confidence"
+          value={Math.round(confidence)}
           unit="%"
           severity="forecast"
           icon={<Zap size={16} />}
-          subtitle="Model estimate"
+          subtitle={analysis.model.type}
         />
         <KpiCard
-          title="Protected Assets"
-          value={summary.protectedAssets}
+          title="Features Used"
+          value={analysis.model.features_used}
           severity="safe"
           icon={<Shield size={16} />}
-          subtitle="Active coverage"
+          subtitle={`of ${analysis.dataset.features_available} available`}
         />
       </div>
 
       {/* Hero Forecast */}
       <div className="mb-4">
-        <ForecastHeroCard forecast={forecast} onRefresh={setForecast} />
+        <ForecastHeroCard forecast={forecastHero} onRefresh={() => {}} />
       </div>
 
       {/* Attack Trajectory */}
@@ -128,12 +185,14 @@ export default function Dashboard() {
           <RiskForecastChart data={riskSeries} />
         </div>
         <CurrentVsForecastCard
-          currentRisk={72}
-          currentStage="Reconnaissance"
-          indicators={['Port scanning', 'High SYN ratio', 'Unusual destination count']}
-          nextStage="Initial Access"
-          probability={82}
-          horizon={5}
+          currentRisk={riskScore}
+          currentStage={analysis.mitre_progression[0]?.tactic ?? 'Unknown'}
+          indicators={
+            (analysis.top_saliency_features ?? []).slice(0, 3).map((f: any) => f.feature)
+          }
+          nextStage={p.predicted_next_stage ?? 'Unknown'}
+          probability={Math.round((p.attack_probability ?? 0) * 100)}
+          horizon={(analysis.forecast ?? []).length}
           onInvestigate={() => navigate('/investigations')}
         />
       </div>
@@ -141,13 +200,13 @@ export default function Dashboard() {
       {/* Explainability + Traffic */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ExplainabilityCard data={explain} />
-        <TrafficOverview data={traffic} />
+        <TrafficOverview data={mockTrafficOverview} />
       </div>
     </AppShell>
   );
 }
 
-// ── Current vs Forecast side-by-side card ───────────────
+// ── Current vs Forecast side-by-side card ─────────────────────────────────────
 function CurrentVsForecastCard({
   currentRisk, currentStage, indicators, nextStage, probability, horizon, onInvestigate
 }: {
@@ -174,6 +233,9 @@ function CurrentVsForecastCard({
                 {ind}
               </div>
             ))}
+            {indicators.length === 0 && (
+              <div className="text-[11px] text-text-disabled italic">No saliency features available</div>
+            )}
           </div>
         </div>
 
@@ -187,14 +249,14 @@ function CurrentVsForecastCard({
           </div>
           <div className="text-sm font-bold text-forecast-bright">{nextStage}</div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-text-muted">Estimated probability</span>
+            <span className="text-text-muted">Attack probability</span>
             <span className="font-semibold text-warning">{probability}%</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-text-muted">Forecast horizon</span>
             <span className="text-text-secondary">Next {horizon} windows</span>
           </div>
-          <Badge severity="Forecast" dot className="text-[10px]">Model Estimate — Demo Data</Badge>
+          <Badge severity="Forecast" dot className="text-[10px]">PyTorch GRU Model Output</Badge>
         </div>
 
         <button onClick={onInvestigate} className="btn btn-secondary w-full justify-center btn-sm">

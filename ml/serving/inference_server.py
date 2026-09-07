@@ -29,6 +29,7 @@ from ml.serving.database import connect_to_mongo, close_mongo_connection, db_ins
 from ml.serving.auth import get_current_user
 from ml.serving.routes_auth import router as auth_router
 from ml.serving.routes_api import router as api_router
+from ml.serving.routes_datasets import router as datasets_router, register_pipeline
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -36,6 +37,12 @@ from pydantic import BaseModel
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from ml.models.partial_model import PartialFlowMLP
+from ml.serving.feature_contract import PARTIAL_MODEL_FEATURES, ORIGINAL_FEATURES
+from ml.preprocessing.inference_engineer import engineer_features
+import joblib
+
 
 # ── PCAP pipeline services ────────────────────────────────────────────────────
 from ml.serving.services.pcap_validator import validate_pcap, PCAPValidationError, MAX_FILE_SIZE
@@ -121,11 +128,14 @@ _device     = None
 _demo_preds = None   # precomputed demo stream predictions
 _xgb_binary = None   # XGBoost binary classifier (for PCAP per-flow analysis)
 _feat_extractor = None  # PCAPFeatureExtractor (lazy-init)
+_partial_model = None
+_partial_scaler = None
+
 
 
 def load_model():
     global _model, _scaler, _feat_cols, _class_names, _eng_feats, _device, _demo_preds
-    global _xgb_binary, _feat_extractor
+    global _xgb_binary, _feat_extractor, _partial_model, _partial_scaler
 
     device = torch.device("cpu")   # CPU for low-latency inference
     _device = device
@@ -145,6 +155,19 @@ def load_model():
                             hp["n_classes_mc"], hp["dropout"]).to(device)
     _model.load_state_dict(ckpt["model_state_dict"])
     _model.eval()
+
+
+    # Load Partial PyTorch model if exists
+    partial_path = MODELS_DIR / "partial_model.pth"
+    scaler_path = MODELS_DIR / "partial_scaler.pkl"
+    if partial_path.exists() and scaler_path.exists():
+        _partial_scaler = joblib.load(scaler_path)
+        _partial_model = PartialFlowMLP(input_size=len(PARTIAL_MODEL_FEATURES), num_classes=15).to(device)
+        _partial_model.load_state_dict(torch.load(partial_path, map_location=device))
+        _partial_model.eval()
+        logger.info("[SERVER] Partial PyTorch Model loaded successfully.")
+    else:
+        logger.warning("[SERVER] Partial model or scaler not found. Fallback mode will be unavailable.")
 
     # Load XGBoost binary model (for per-flow PCAP classification)
     xgb_path = MODELS_DIR / "xgb_binary.pkl"
@@ -256,6 +279,7 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(api_router)
+app.include_router(datasets_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -271,6 +295,11 @@ app.add_middleware(
 async def startup_event():
     print("loading model"); load_model(); print("model loaded")
     print("connecting mongo"); await connect_to_mongo(); print("mongo connected")
+    # Register the existing pipeline with the dataset router (avoids circular import)
+    register_pipeline(
+        analyze_fn=_analyze_file_sync,
+        model_ready_fn=lambda: _model is not None,
+    )
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -494,175 +523,232 @@ async def zeek_status():
 
 
 def _analyze_file_sync(file_path: Path, original_filename: str) -> dict:
-    """
-    Synchronous analysis pipeline — handles PCAP, PCAPNG, CSV, Parquet.
-    """
     t_start = time.perf_counter()
-    work_dir: Optional[Path] = None
+    work_dir = None
     suffix = file_path.suffix.lower()
 
+    feature_coverage = {
+        "required": 60,
+        "available": 0,
+        "engineered": 0,
+        "final": 0,
+        "missing": []
+    }
+    model_mode = "gru_60"
+    
     try:
         if suffix in [".csv", ".parquet"]:
             logger.info(f"[FILE] Loading dataframe from {original_filename}")
-            if suffix == ".parquet":
-                df = pd.read_parquet(file_path)
-            else:
-                df = pd.read_csv(file_path, low_memory=False)
+            df = pd.read_parquet(file_path) if suffix == ".parquet" else pd.read_csv(file_path, low_memory=False)
 
-            # Strip whitespace and lowercase all columns
             df.columns = df.columns.str.strip().str.lower()
             feat_cols_lower = [c.strip().lower() for c in _feat_cols]
+            orig_cols_lower = [c.strip().lower() for c in ORIGINAL_FEATURES]
+            part_cols_lower = [c.strip().lower() for c in PARTIAL_MODEL_FEATURES]
 
-            # Drop label columns
             for col in list(df.columns):
-                if col in ['label', 'attack', 'attack_type', 'class']:
+                if col in ['label', 'attack', 'attack_type', 'class', 'label_multiclass', 'label_binary']:
                     df.drop(columns=[col], inplace=True)
-
-            mapped_cols = {}
-            missing = []
+            
+            # Map columns fuzzily
+            mapped_df = pd.DataFrame(index=df.index)
+            avail_count = 0
             for c, c_lower in zip(_feat_cols, feat_cols_lower):
-                if c_lower in df.columns:
-                    mapped_cols[c] = df[c_lower]
-                else:
-                    c_clean = ''.join(e for e in c_lower if e.isalnum())
-                    found = False
-                    for df_c in df.columns:
-                        if ''.join(e for e in df_c if e.isalnum()) == c_clean:
-                            mapped_cols[c] = df[df_c]
-                            found = True
-                            break
-                    if not found:
-                        missing.append(c)
+                c_clean = ''.join(e for e in c_lower if e.isalnum())
+                found = False
+                for df_c in df.columns:
+                    if ''.join(e for e in df_c if e.isalnum()) == c_clean:
+                        mapped_df[c] = df[df_c]
+                        avail_count += 1
+                        found = True
+                        break
+                if not found:
+                    pass
 
-            if missing:
-                raise ValueError(f"File is missing {len(missing)} required features: {missing[:5]}...")
+            has_all_60 = (avail_count == 60)
+            
+            has_all_original = True
+            for c, c_lower in zip(ORIGINAL_FEATURES, orig_cols_lower):
+                if c not in mapped_df.columns:
+                    has_all_original = False
+                    break
+            
+            has_all_partial = True
+            for c, c_lower in zip(PARTIAL_MODEL_FEATURES, part_cols_lower):
+                if c not in mapped_df.columns:
+                    has_all_partial = False
+                    break
 
-            df = pd.DataFrame(mapped_cols)
-            df = df[_feat_cols]
-            df = df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+            if has_all_60:
+                logger.info("[FILE] All 60 features found.")
+                df = mapped_df[_feat_cols].fillna(0.0)
+                model_mode = "gru_60"
+                feature_coverage["available"] = 60
+                feature_coverage["final"] = 60
+                feature_coverage["engineered"] = 0
+            elif has_all_original:
+                logger.info("[FILE] 46 original features found. Running feature engineering...")
+                df_eng = engineer_features(mapped_df)
+                df = df_eng[_feat_cols].fillna(0.0)
+                model_mode = "gru_60"
+                feature_coverage["available"] = 46
+                feature_coverage["final"] = 60
+                feature_coverage["engineered"] = 14
+            elif has_all_partial:
+                logger.warning("[FILE] Missing features. Falling back to Partial PyTorch Model.")
+                if _partial_model is None:
+                    raise ValueError("Partial model not loaded but required for this dataset.")
+                df = mapped_df[PARTIAL_MODEL_FEATURES].fillna(0.0)
+                model_mode = "partial_pytorch"
+                feature_coverage["required"] = 60
+                feature_coverage["available"] = len(PARTIAL_MODEL_FEATURES)
+                feature_coverage["final"] = len(PARTIAL_MODEL_FEATURES)
+                missing = [c for c in _feat_cols if c not in df.columns]
+                feature_coverage["missing"] = missing
+            else:
+                raise ValueError("Insufficient features for any model mode.")
 
             n_flows = len(df)
-            logger.info(f"[FILE] Loaded {n_flows} rows from dataframe.")
             duration_s = 0.0
-            schema_report = {"schema": "MATCH", "expected": len(_feat_cols), "generated": len(_feat_cols), "missing": [], "extra": [], "order_match": True}
-            xgb_summary = None
             n_zeek_flows = n_flows
             zeek_stats = {}
-            
+            xgb_summary = None
+
         else:
-            # ── STEP 1: Zeek ─────────────────────────────────────────────────────
             logger.info(f"[PCAP] Running Zeek on {original_filename}")
             work_dir, zeek_stats = run_zeek(file_path)
-
             conn_df = parse_conn_log(work_dir / "conn.log")
             n_zeek_flows = len(conn_df)
-            logger.info(f"[PCAP] Zeek: {n_zeek_flows:,} flows in conn.log")
-
-            # ── STEP 2: Feature extraction (scapy) ───────────────────────────────
-            logger.info("[PCAP] Extracting CICFlowMeter features (scapy)...")
-            if _feat_extractor is None:
-                raise RuntimeError("PCAPFeatureExtractor is not available (scapy not installed).")
+            
             df = _feat_extractor.extract(file_path)
             n_flows = len(df)
-            logger.info(f"[PCAP] Feature extraction complete: {n_flows:,} flows × {len(df.columns)} features")
-
-            # ── STEP 3: Feature schema validation ────────────────────────────────
-            schema_report = _feat_extractor.validate_schema(df)
             
-            # PCAP duration
+            # Use exact existing logic
+            X_raw = df.values.astype(np.float32)
+            model_mode = "gru_60"
+            feature_coverage["available"] = 60
+            feature_coverage["final"] = 60
+            
             duration_s = 0.0
-            if "ts" in conn_df.columns:
-                try:
-                    ts_vals = pd.to_numeric(conn_df["ts"], errors="coerce").dropna()
-                    if len(ts_vals) > 0:
-                        duration_s = round(float(ts_vals.max() - ts_vals.min()), 2)
-                except Exception:
-                    pass
-            xgb_summary = None # computed below
+            xgb_summary = None
+            if _xgb_binary is not None:
+                xgb_probs  = _xgb_binary.predict_proba(X_raw)[:, 1]
+                xgb_preds  = (xgb_probs >= 0.5).astype(int)
+                n_attack   = int(xgb_preds.sum())
+                xgb_summary = {
+                    "total_flows": n_flows,
+                    "attack_flows": n_attack,
+                    "benign_flows": n_flows - n_attack,
+                    "attack_percentage": round(100 * n_attack / n_flows, 1),
+                    "mean_attack_prob": float(xgb_probs.mean()),
+                }
 
-        # ── STEP 4: Preprocessing (existing scaler — transform only) ─────────
-        logger.info("[FILE] Applying existing StandardScaler (transform only)...")
-        X_raw    = df.values.astype(np.float32)
-        X_scaled = _scaler.transform(X_raw).astype(np.float32)
+        # ── SANITIZE DATA ──
+        df = df.apply(pd.to_numeric, errors='coerce')
+        
+        max_f32 = float(np.finfo(np.float32).max)
+        min_f32 = float(np.finfo(np.float32).min)
+        
+        for col in df.columns:
+            inf_mask = np.isinf(df[col])
+            nan_mask = df[col].isna()
+            out_of_bounds_mask = (df[col] > max_f32) | (df[col] < min_f32)
+            
+            total_bad = inf_mask.sum() + nan_mask.sum() + out_of_bounds_mask.sum()
+            
+            if total_bad > 0:
+                logger.warning(f"[SANITIZE] Feature '{col}' contains {inf_mask.sum()} Infs, {nan_mask.sum()} NaNs, {out_of_bounds_mask.sum()} out-of-bounds.")
+                
+                # Replace +inf, -inf, and out-of-bounds with NaN
+                df.loc[inf_mask | out_of_bounds_mask, col] = np.nan
+                
+                # Handle NaN deterministically (fallback to 0.0)
+                df[col] = df[col].fillna(0.0)
+                
+        # Final cast to ensure float32 compliance
+        df = df.astype(np.float32)
 
-        # ── STEP 5: XGBoost per-flow binary classification ───────────────────
-        if _xgb_binary is not None and suffix in [".pcap", ".pcapng"]:
-            logger.info("[PCAP] Running XGBoost binary classifier...")
-            xgb_probs  = _xgb_binary.predict_proba(X_raw)[:, 1]
-            xgb_preds  = (xgb_probs >= 0.5).astype(int)
-            n_attack   = int(xgb_preds.sum())
-            n_benign   = n_flows - n_attack
-            mean_attack_prob = float(xgb_probs.mean())
-            xgb_summary = {
-                "total_flows":        n_flows,
-                "attack_flows":       n_attack,
-                "benign_flows":       n_benign,
-                "attack_percentage":  round(100 * n_attack / n_flows, 1),
-                "mean_attack_prob":   round(mean_attack_prob, 4),
-            }
+        # ── RUN INFERENCE ──
+        if model_mode == "gru_60":
+            logger.info("[FILE] Running 60-feature GRU Pipeline")
+            X_raw = df.values.astype(np.float32)
+            X_scaled = _scaler.transform(X_raw).astype(np.float32)
+            
+            if n_flows < SEQ_LEN:
+                pad = np.zeros((SEQ_LEN - n_flows, X_scaled.shape[1]), dtype=np.float32)
+                X_padded = np.vstack([pad, X_scaled])
+            else:
+                X_padded = X_scaled
 
-        # ── STEP 6: GRU sequence construction + K-step rollout ───────────────
-        logger.info("[FILE] Constructing GRU sequences...")
-        if n_flows < SEQ_LEN:
-            pad = np.zeros((SEQ_LEN - n_flows, X_scaled.shape[1]), dtype=np.float32)
-            X_padded = np.vstack([pad, X_scaled])
-            logger.warning(f"[FILE] Only {n_flows} flows — padded to SEQ_LEN={SEQ_LEN} with zeros.")
+            last_seq = X_padded[-SEQ_LEN:]
+            attack_probs, class_probs, _ = _rollout(last_seq, K=ROLLOUT_K)
+            rs = _risk_score(attack_probs, class_probs)
+            rl = _risk_level(rs)
+            mitre = _build_mitre_progression(class_probs)
+            sal = _gradient_saliency(last_seq, top_k=10)
+            
+            forecast = [
+                {
+                    "step": m["step"],
+                    "attack_prob": round(float(attack_probs[m["step"] - 1]), 4),
+                    "risk_score": round(_risk_score(attack_probs[:m["step"]], class_probs[:m["step"]]), 2),
+                } for m in mitre
+            ]
+
         else:
-            X_padded = X_scaled
+            logger.info("[FILE] Running Partial PyTorch Pipeline")
+            X_raw = df.values.astype(np.float32)
+            X_scaled = _partial_scaler.transform(X_raw).astype(np.float32)
+            
+            # Partial model takes aggregate of flow or just the last flow. 
+            # We will use the mean of the scaled features to represent the network state
+            mean_state = torch.tensor(X_scaled.mean(axis=0), dtype=torch.float32).unsqueeze(0).to(_device)
+            
+            with torch.no_grad():
+                out = _partial_model(mean_state)
+                probs = torch.softmax(out, dim=1).cpu().numpy()[0]
+                
+            attack_prob = float(1.0 - probs[0]) # index 0 is BENIGN
+            
+            # Heuristic risk for partial model
+            rs = min(round(attack_prob * 100 * 1.2, 1), 100.0)
+            rl = _risk_level(rs)
+            
+            class_probs = [probs.tolist()]
+            mitre = _build_mitre_progression(class_probs)
+            sal = []
+            forecast = None
 
-        last_seq = X_padded[-SEQ_LEN:]
-
-        logger.info("[FILE] Running GRU K-step rollout...")
-        attack_probs, class_probs, next_states = _rollout(last_seq, K=ROLLOUT_K)
-
-        # ── STEP 7: Risk + MITRE + saliency ──────────────────────────────────
-        rs    = _risk_score(attack_probs, class_probs)
-        rl    = _risk_level(rs)
-        mitre = _build_mitre_progression(class_probs)
-        sal   = _gradient_saliency(last_seq, top_k=10)
-
-        n_windows = max(1, n_flows - SEQ_LEN + 1)
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
         return {
             "status": "success",
+            "model_mode": model_mode,
+            "feature_coverage": feature_coverage,
             "input": {
-                "filename":    original_filename,
-                "type":        suffix.strip("."),
-                "size_bytes":  file_path.stat().st_size,
+                "filename": original_filename,
+                "type": suffix.strip("."),
+                "size_bytes": file_path.stat().st_size,
             },
             "summary": {
-                "flows_analyzed":     n_flows,
-                "zeek_flows":         n_zeek_flows,
-                "time_windows":       n_windows,
-                "duration_seconds":   duration_s,
-                "zeek_version":       zeek_stats.get("zeek_version"),
-                "zeek_elapsed_s":     zeek_stats.get("elapsed_seconds"),
+                "flows_analyzed": n_flows,
+                "zeek_flows": n_zeek_flows,
+                "duration_seconds": duration_s,
             },
-            "feature_validation": schema_report,
-            "xgb_flow_analysis":  xgb_summary,
+            "xgb_flow_analysis": xgb_summary,
             "current_state": {
-                "risk_score":  rs,
-                "risk_level":  rl,
+                "risk_score": rs,
+                "risk_level": rl,
             },
-            "forecast": [
-                {
-                    "step":        m["step"],
-                    "attack_prob": round(float(attack_probs[m["step"] - 1]), 4),
-                    "risk_score":  round(_risk_score(attack_probs[:m["step"]], class_probs[:m["step"]]), 2),
-                }
-                for m in mitre
-            ],
-            "mitre_progression":      mitre,
-            "top_saliency_features":  sal,
-            "processing_time_ms":     elapsed_ms,
+            "attack_probability": float(attack_probs[0]) if model_mode == "gru_60" else attack_prob,
+            "forecast": forecast,
+            "mitre_progression": mitre,
+            "top_saliency_features": sal,
+            "processing_time_ms": elapsed_ms,
         }
-
     finally:
         if work_dir and work_dir.exists():
             shutil.rmtree(work_dir, ignore_errors=True)
-
-
 @app.post("/api/analyze-pcap")
 async def analyze_pcap(file: UploadFile = File(...), current_user: dict = Depends(get_current_user), db = Depends(get_db)):
     if _model is None:
