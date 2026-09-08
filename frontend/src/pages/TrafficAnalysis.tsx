@@ -113,7 +113,7 @@ export default function TrafficAnalysis() {
                   </div>
                   <Badge severity={
                     analysis.prediction.risk_level === 'CRITICAL' ? 'Critical' :
-                    analysis.prediction.risk_level === 'HIGH' ? 'Warning' :
+                    analysis.prediction.risk_level === 'HIGH' ? 'High' :
                     analysis.prediction.risk_level === 'MEDIUM' ? 'Info' : 'Safe'
                   }>{analysis.prediction.risk_level}</Badge>
                 </div>

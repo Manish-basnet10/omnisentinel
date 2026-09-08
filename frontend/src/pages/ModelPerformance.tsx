@@ -53,7 +53,7 @@ export default function ModelPerformance() {
               <div className="pt-2 flex flex-wrap gap-2">
                 <Badge severity="Forecast" className="py-0.5">Parameters: {isActiveGRU ? '146.2k' : '28.5k'}</Badge>
                 <Badge severity="Forecast" className="py-0.5">Processing time: {analysis.traffic_analysis?.processing_time_ms || 240}ms</Badge>
-                <Badge severity={isActiveGRU ? 'Safe' : 'Warning'} className="py-0.5">
+                <Badge severity={isActiveGRU ? 'Safe' : 'High'} className="py-0.5">
                   Features Used: {analysis.model.features_used}
                 </Badge>
               </div>

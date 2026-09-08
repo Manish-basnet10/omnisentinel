@@ -73,45 +73,45 @@ export default function Dashboard() {
   const riskLevel = p.risk_level;
   const riskColor = riskLevel === 'CRITICAL' ? 'critical' : riskLevel === 'HIGH' ? 'warning' : riskLevel === 'MEDIUM' ? 'elevated' : 'safe';
 
-  const attackCount = analysis.alerts.length;
+  const attackCount = (analysis.alerts || []).length;
   const flowCount   = analysis.traffic_analysis?.flows_analyzed ?? 0;
   const confidence  = p.confidence ?? 0;
 
   // Build forecast hero shape from analysis.mitre_progression + analysis.forecast
   const forecastHero = {
-    currentStage:    analysis.mitre_progression[0]?.tactic ?? 'Unknown',
-    nextStage:       p.predicted_next_stage ?? 'Unknown',
-    probability:     Math.round((p.attack_probability ?? 0) * 100),
-    technique:       p.predicted_technique ?? '—',
-    riskScore,
-    confidence,
-    timestamp:       analysis.created_at,
+    currentStage:    (analysis.mitre_progression || [])[0]?.tactic ?? 'Unknown',
+    predictedNextStage: p.predicted_next_stage ?? 'Unknown',
+    possibleFollowingStage: '—',
+    progressionProbability: Math.round((p.attack_probability ?? 0) * 100),
+    confidenceLevel: (confidence > 80 ? 'High' : confidence > 50 ? 'Medium' : 'Low') as 'High',
+    forecastHorizon: (analysis.forecast || []).length || 5,
+    timestamp:       analysis.created_at || new Date().toISOString(),
   };
 
   // Build trajectory from mitre_progression
-  const trajectory = analysis.mitre_progression.map((m: any) => ({
-    stage:     m.tactic,
-    technique: m.technique,
-    label:     m.label,
-    stage_num: m.stage,
-    severity:  m.severity,
-    status:    m.status,
+  const trajectory = (analysis.mitre_progression || []).map((m: any, i: number) => ({
+    id: `traj-${i}`,
+    label: m.tactic || m.label || 'Unknown',
+    status: (m.status === 'current' ? 'current' : m.status === 'forecast' ? 'forecast' : 'observed') as any,
+    time: m.status !== 'forecast' ? new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
   }));
 
   // Build risk time series from forecast
-  const riskSeries = (analysis.forecast ?? []).map((f: any, i: number) => ({
+  const riskSeries = (analysis.forecast || []).map((f: any, i: number) => ({
     t:         `t+${i + 1}`,
     risk:      Math.round(f.risk_score ?? riskScore),
-    threshold: 65,
+    stage:     f.predicted_stage || 'Unknown',
+    type:      'forecast',
   }));
   // Prepend current
-  riskSeries.unshift({ t: 'Now', risk: riskScore, threshold: 65 });
+  riskSeries.unshift({ t: 'Now', risk: riskScore, stage: forecastHero.currentStage, type: 'now' });
 
   // Explainability from top saliency features
   const explain = {
-    features: (analysis.top_saliency_features ?? []).map((f: any) => ({
+    factors: (analysis.top_saliency_features || []).map((f: any) => ({
       feature:    f.feature,
-      importance: f.saliency,
+      contribution: Math.round(f.saliency * 100) || 0,
+      direction:  (f.saliency > 0.02 ? 'positive' : 'negative') as any,
     })),
     prediction: p.predicted_next_stage ?? 'Unknown',
     confidence,
@@ -186,7 +186,7 @@ export default function Dashboard() {
         </div>
         <CurrentVsForecastCard
           currentRisk={riskScore}
-          currentStage={analysis.mitre_progression[0]?.tactic ?? 'Unknown'}
+          currentStage={(analysis.mitre_progression || [])[0]?.tactic ?? 'Unknown'}
           indicators={
             (analysis.top_saliency_features ?? []).slice(0, 3).map((f: any) => f.feature)
           }
