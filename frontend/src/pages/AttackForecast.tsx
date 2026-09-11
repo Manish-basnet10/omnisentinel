@@ -20,44 +20,32 @@ const STAGE_COLOR: Record<string, string> = {
   Benign: '#22c55e',
 };
 
-// Map backend forecast to UI shape
+// Map backend unified forecast array to UI shape
 function transformForecast(analysis: any, horizon: number) {
-  if (!analysis) return { steps: [], overallRisk: 0 };
-  
-  const currentRisk = analysis.prediction.current_risk;
-  const currentStage = analysis.mitre_progression[0]?.tactic || 'Unknown';
+  if (!analysis || !analysis.forecast || analysis.forecast.length === 0) {
+    return { steps: [], overallRisk: 0 };
+  }
   
   const steps = [];
+  const backendForecast = analysis.forecast;
   
-  // Now step
-  steps.push({
-    horizon: 'Now',
-    stage: currentStage,
-    riskScore: Math.round(currentRisk),
-    probability: 100, // already observed
-    confidence: Math.round(analysis.prediction.confidence || 0),
-    description: 'Current network state.',
-    trafficPattern: 'Observed traffic pattern',
-  });
-
-  // Future steps
-  const backendForecast = analysis.forecast || [];
-  const limit = Math.min(horizon, backendForecast.length);
+  // The forecast array from backend contains step 0 (NOW) and steps 1..K (Future)
+  const limit = Math.min(horizon + 1, backendForecast.length);
   
   for (let i = 0; i < limit; i++) {
     const f = backendForecast[i];
     steps.push({
-      horizon: `+${i + 1}`,
-      stage: f.mitre_stage || analysis.prediction.predicted_next_stage || 'Unknown',
-      riskScore: Math.round(f.risk_score || currentRisk),
-      probability: Math.round(f.probability ? f.probability * 100 : analysis.prediction.attack_probability * 100),
-      confidence: Math.round(f.confidence ? f.confidence * 100 : analysis.prediction.confidence),
-      description: `Model prediction for t+${i+1}`,
-      trafficPattern: 'Predicted pattern',
+      horizon: f.step === 0 ? 'Now' : `+${f.step}`,
+      stage: f.stage || 'Unknown',
+      riskScore: Math.round(f.risk || 0),
+      probability: Math.round(f.probability ? f.probability * 100 : 0),
+      confidence: Math.round(f.confidence ? f.confidence * 100 : 0),
+      description: f.step === 0 ? 'Current network state.' : `Model prediction for t+${f.step}`,
+      trafficPattern: f.step === 0 ? 'Observed traffic pattern' : 'Predicted pattern',
     });
   }
   
-  const lastStepRisk = steps.length > 1 ? steps[steps.length - 1].riskScore : currentRisk;
+  const lastStepRisk = steps.length > 0 ? steps[steps.length - 1].riskScore : 0;
 
   return {
     steps,

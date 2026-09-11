@@ -14,7 +14,13 @@ export default function Register() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
-  const { register } = useAuth();
+  const { register, isAuthenticated } = useAuth();
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +30,7 @@ export default function Register() {
     
     try {
       await register(name, email, password);
-      navigate('/dashboard');
+      // Removed navigate('/dashboard') to prevent race condition
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
     } finally {

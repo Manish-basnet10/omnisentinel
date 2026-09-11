@@ -550,34 +550,71 @@ def _analyze_file_sync(file_path: Path, original_filename: str) -> dict:
                 if col in ['label', 'attack', 'attack_type', 'class', 'label_multiclass', 'label_binary']:
                     df.drop(columns=[col], inplace=True)
             
-            # Map columns fuzzily
-            mapped_df = pd.DataFrame(index=df.index)
-            avail_count = 0
-            for c, c_lower in zip(_feat_cols, feat_cols_lower):
-                c_clean = ''.join(e for e in c_lower if e.isalnum())
-                found = False
-                for df_c in df.columns:
-                    if ''.join(e for e in df_c if e.isalnum()) == c_clean:
-                        mapped_df[c] = df[df_c]
-                        avail_count += 1
-                        found = True
-                        break
-                if not found:
-                    pass
+            # CIC-IDS2018 to CIC-IDS2017 column alias mapping
+            alias_map = {
+                "dst port": "destination port",
+                "tot fwd pkts": "total fwd packets",
+                "tot bwd pkts": "total backward packets",
+                "totlen fwd pkts": "total length of fwd packets",
+                "totlen bwd pkts": "total length of bwd packets",
+                "fwd pkt len max": "fwd packet length max",
+                "fwd pkt len min": "fwd packet length min",
+                "fwd pkt len mean": "fwd packet length mean",
+                "fwd pkt len std": "fwd packet length std",
+                "bwd pkt len max": "bwd packet length max",
+                "bwd pkt len min": "bwd packet length min",
+                "bwd pkt len mean": "bwd packet length mean",
+                "bwd pkt len std": "bwd packet length std",
+                "flow byts/s": "flow bytes/s",
+                "flow pkts/s": "flow packets/s",
+                "fwd iat tot": "fwd iat total",
+                "bwd iat tot": "bwd iat total",
+                "fwd pkts/s": "fwd packets/s",
+                "bwd pkts/s": "bwd packets/s",
+                "pkt len min": "min packet length",
+                "pkt len max": "max packet length",
+                "pkt len mean": "packet length mean",
+                "pkt len std": "packet length std",
+                "pkt len var": "packet length variance",
+                "fin flag cnt": "fin flag count",
+                "syn flag cnt": "syn flag count",
+                "rst flag cnt": "rst flag count",
+                "psh flag cnt": "psh flag count",
+                "ack flag cnt": "ack flag count",
+                "urg flag cnt": "urg flag count",
+                "cwe flag count": "cwe flag count",
+                "ece flag cnt": "ece flag count",
+                "init fwd win byts": "init_win_bytes_forward",
+                "init bwd win byts": "init_win_bytes_backward",
+                "fwd seg size min": "min_seg_size_forward",
+            }
+            
+            # Apply aliases
+            normalized_cols = []
+            for col in df.columns:
+                c_norm = str(col).strip().lower()
+                normalized_cols.append(alias_map.get(c_norm, c_norm))
+            df.columns = normalized_cols
 
-            has_all_60 = (avail_count == 60)
+            # Create a unified target set for all required column names
+            all_target_cols = list(set(_feat_cols + ORIGINAL_FEATURES + PARTIAL_MODEL_FEATURES))
             
-            has_all_original = True
-            for c, c_lower in zip(ORIGINAL_FEATURES, orig_cols_lower):
-                if c not in mapped_df.columns:
-                    has_all_original = False
-                    break
+            mapped_df = pd.DataFrame(index=df.index)
             
-            has_all_partial = True
-            for c, c_lower in zip(PARTIAL_MODEL_FEATURES, part_cols_lower):
-                if c not in mapped_df.columns:
-                    has_all_partial = False
-                    break
+            for target_col in all_target_cols:
+                target_clean = ''.join(e for e in target_col.lower() if e.isalnum())
+                for df_c in df.columns:
+                    if ''.join(e for e in str(df_c).lower() if e.isalnum()) == target_clean:
+                        mapped_df[target_col] = df[df_c]
+                        break
+
+            # Coerce all columns to numeric, converting unparseable strings to NaN
+            mapped_df = mapped_df.apply(pd.to_numeric, errors='coerce')
+
+            # Check which requirements are fully met
+            has_all_60 = all(c in mapped_df.columns for c in _feat_cols)
+            has_all_original = all(c in mapped_df.columns for c in ORIGINAL_FEATURES)
+            has_all_partial = all(c in mapped_df.columns for c in PARTIAL_MODEL_FEATURES)
 
             if has_all_60:
                 logger.info("[FILE] All 60 features found.")
@@ -680,32 +717,114 @@ def _analyze_file_sync(file_path: Path, original_filename: str) -> dict:
             else:
                 X_padded = X_scaled
 
-            last_seq = X_padded[-SEQ_LEN:]
-            attack_probs, class_probs, _ = _rollout(last_seq, K=ROLLOUT_K)
-            rs = _risk_score(attack_probs, class_probs)
-            rl = _risk_level(rs)
-            mitre = _build_mitre_progression(class_probs)
-            sal = _gradient_saliency(last_seq, top_k=10)
+            # Split into chunks of SEQ_LEN
+            num_chunks = len(X_padded) // SEQ_LEN
+            valid_len = num_chunks * SEQ_LEN
+            X_chunks = X_padded[:valid_len].reshape(num_chunks, SEQ_LEN, -1)
             
-            forecast = [
-                {
+            logger.info(f"[FILE] Scanning {num_chunks} sequences for anomalies...")
+            max_prob = -1.0
+            best_chunk_idx = num_chunks - 1
+            
+            with torch.no_grad():
+                batch_size = 2048
+                for i in range(0, num_chunks, batch_size):
+                    batch = torch.tensor(X_chunks[i:i+batch_size]).to(_device)
+                    _, pb, _ = _model(batch)
+                    probs = torch.softmax(pb, dim=1)[:, 1].cpu().numpy()
+                    
+                    batch_max_idx = np.argmax(probs)
+                    batch_max_prob = probs[batch_max_idx]
+                    
+                    if batch_max_prob > max_prob:
+                        max_prob = float(batch_max_prob)
+                        best_chunk_idx = i + batch_max_idx
+
+            logger.info(f"[FILE] Most critical sequence found at chunk {best_chunk_idx} with prob {max_prob:.4f}")
+            last_seq = X_chunks[best_chunk_idx]
+            
+            # 1. Evaluate NOW state
+            with torch.no_grad():
+                x_now = torch.tensor(last_seq).unsqueeze(0).to(_device)
+                _, pb_now, pm_now = _model(x_now)
+                now_attack_prob = float(torch.softmax(pb_now, dim=1)[0, 1].cpu())
+                now_class_probs = torch.softmax(pm_now, dim=1).squeeze(0).cpu().numpy()
+                now_top_cls = int(np.argmax(now_class_probs))
+                now_info = MITRE_MAP.get(now_top_cls, MITRE_MAP[0])
+            
+            # 2. Autoregressive Rollout for Future states
+            attack_probs, class_probs, _ = _rollout(last_seq, K=ROLLOUT_K)
+            
+            # 3. Build Unified Forecast Array
+            forecast = []
+            
+            # 3a. Append NOW (step 0)
+            now_rs = _risk_score([now_attack_prob], [now_class_probs])
+            forecast.append({
+                "step": 0,
+                "state": now_info["label"],
+                "stage": now_info["tactic"] or "Normal Traffic",
+                "probability": round(now_attack_prob, 4),
+                "confidence": round(float(now_class_probs[now_top_cls]), 4),
+                "risk": round(now_rs, 2),
+                "mitre_tactic": now_info["tactic"] or "None",
+                "mitre_technique": now_info["technique"] or "—",
+                "timestamp": "NOW"
+            })
+            
+            # 3b. Append Future Steps (step 1 to K)
+            mitre = _build_mitre_progression(class_probs)
+            for i, m in enumerate(mitre):
+                cum_ap = [now_attack_prob] + attack_probs[:i+1].tolist()
+                cum_cp = [now_class_probs.tolist()] + class_probs[:i+1].tolist()
+                step_rs = _risk_score(cum_ap, cum_cp)
+                
+                forecast.append({
                     "step": m["step"],
-                    "attack_prob": round(float(attack_probs[m["step"] - 1]), 4),
-                    "risk_score": round(_risk_score(attack_probs[:m["step"]], class_probs[:m["step"]]), 2),
-                } for m in mitre
-            ]
+                    "state": m["top_class"],
+                    "stage": m["tactic"] or "Normal Traffic",
+                    "probability": round(float(attack_probs[i]), 4),
+                    "confidence": m["probability"],
+                    "risk": round(step_rs, 2),
+                    "mitre_tactic": m["tactic"] or "None",
+                    "mitre_technique": m["technique"] or "—",
+                    "timestamp": f"t+{m['step']}"
+                })
+                
+            rs = forecast[0]["risk"]
+            rl = _risk_level(rs)
+            mitre_progression = mitre  # keep legacy reference for schema compat if needed
+            sal = _gradient_saliency(last_seq, top_k=10)
 
         else:
             logger.info("[FILE] Running Partial PyTorch Pipeline")
             X_raw = df.values.astype(np.float32)
             X_scaled = _partial_scaler.transform(X_raw).astype(np.float32)
             
-            # Partial model takes aggregate of flow or just the last flow. 
-            # We will use the mean of the scaled features to represent the network state
-            mean_state = torch.tensor(X_scaled.mean(axis=0), dtype=torch.float32).unsqueeze(0).to(_device)
+            logger.info(f"[FILE] Scanning {len(X_scaled)} flows for anomalies...")
+            with torch.no_grad():
+                batch_size = 8192
+                max_prob = -1.0
+                best_flow_idx = len(X_scaled) - 1
+                
+                for i in range(0, len(X_scaled), batch_size):
+                    batch = torch.tensor(X_scaled[i:i+batch_size]).to(_device)
+                    out = _partial_model(batch)
+                    probs = torch.softmax(out, dim=1).cpu().numpy()
+                    attack_probs = 1.0 - probs[:, 0]
+                    
+                    batch_max_idx = np.argmax(attack_probs)
+                    batch_max_prob = attack_probs[batch_max_idx]
+                    
+                    if batch_max_prob > max_prob:
+                        max_prob = float(batch_max_prob)
+                        best_flow_idx = i + batch_max_idx
+                
+            logger.info(f"[FILE] Most critical flow found at index {best_flow_idx} with prob {max_prob:.4f}")
+            worst_flow = torch.tensor(X_scaled[best_flow_idx]).unsqueeze(0).to(_device)
             
             with torch.no_grad():
-                out = _partial_model(mean_state)
+                out = _partial_model(worst_flow)
                 probs = torch.softmax(out, dim=1).cpu().numpy()[0]
                 
             attack_prob = float(1.0 - probs[0]) # index 0 is BENIGN

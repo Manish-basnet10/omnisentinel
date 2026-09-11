@@ -13,7 +13,13 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +29,7 @@ export default function Login() {
     
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // Removed navigate('/dashboard') to prevent race condition with state update
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {

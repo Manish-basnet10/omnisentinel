@@ -373,3 +373,37 @@ async def delete_dataset(dataset_id: str, current_user: dict = Depends(get_curre
     await db["analysis_sessions"].delete_one({"dataset_id": dataset_id})
     await db["alerts"].delete_many({"dataset_id": dataset_id})
     return {"message": "Dataset deleted"}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GET /api/datasets/active
+# ══════════════════════════════════════════════════════════════════════════════
+@router.get("/active")
+async def get_active_dataset(current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    
+    # Get the most recently uploaded dataset
+    latest = await db["datasets"].find_one({"user_id": current_user["id"]}, sort=[("created_at", -1)])
+    if latest:
+        return {"dataset_id": latest["_id"]}
+        
+    return {"dataset_id": None, "needs_bootstrap": True}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /api/datasets/bootstrap
+# ══════════════════════════════════════════════════════════════════════════════
+@router.post("/bootstrap")
+async def bootstrap_default_dataset(current_user: dict = Depends(get_current_user), db = Depends(get_db)):
+    """Automatically loads the default SIH dataset to prevent empty dashboard state."""
+    default_csv = Path("test_cicflowmeter_chunk.csv")
+    if not default_csv.exists():
+        raise HTTPException(status_code=404, detail="Default SIH dataset not found on server.")
+        
+    from starlette.datastructures import UploadFile as StarletteUploadFile
+    import io
+    
+    with open(default_csv, "rb") as f:
+        file_content = f.read()
+        
+    mock_file = StarletteUploadFile(filename="SIH_Wednesday_Default.csv", file=io.BytesIO(file_content))
+    return await upload_dataset(file=mock_file, current_user=current_user, db=db)

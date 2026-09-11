@@ -21,7 +21,15 @@ export default function AttackTimeline() {
     );
   }
 
-  const events = analysis.timeline || [];
+  // Map directly from unified forecast array
+  const events = (analysis.forecast || []).map((f: any) => ({
+    id: f.step,
+    observed: f.step === 0, // step 0 is NOW (Observed)
+    stage: f.stage || 'Unknown',
+    label: f.mitre_tactic && f.mitre_technique ? `${f.mitre_tactic} (${f.mitre_technique})` : (f.state || 'Unknown Activity'),
+    detail: f.step === 0 ? 'Confirmed network state' : `Predicted trajectory at t+${f.step}`,
+    riskScore: f.risk || 0,
+  }));
 
   return (
     <AppShell>

@@ -29,24 +29,30 @@ interface MatrixNode {
 function buildMatrixNodes(analysis: any): MatrixNode[] {
   if (!analysis) return [];
 
-  const progression = analysis.mitre_progression || [];
+  const forecast = analysis.forecast || [];
   
   // Track what we've mapped so we know what is "not_observed"
   const mappedTactics = new Set<string>();
   const nodes: MatrixNode[] = [];
 
-  // Map active progression from PyTorch output
-  progression.forEach((m: any, idx: number) => {
-    mappedTactics.add(m.tactic);
-    nodes.push({
-      id: `node-${idx}`,
-      tactic: m.tactic,
-      technique: m.technique,
-      description: m.description || `Predicted activity corresponding to ${m.technique}`,
-      evidence: `Confidence: ${Math.round(m.probability * 100)}% based on temporal pattern`,
-      status: m.status as any, // 'current' or 'forecast'
-      confidence: Math.round(m.probability * 100)
-    });
+  // Map active progression from unified forecast
+  forecast.forEach((f: any) => {
+    const tactic = f.mitre_tactic && f.mitre_tactic !== 'None' ? f.mitre_tactic : f.state;
+    const technique = f.mitre_technique && f.mitre_technique !== '—' ? f.mitre_technique : f.stage;
+    
+    // Avoid duplicating tactics if multiple steps predict the same tactic
+    if (!mappedTactics.has(tactic) && tactic !== 'BENIGN' && tactic !== 'Normal Traffic') {
+      mappedTactics.add(tactic);
+      nodes.push({
+        id: `node-${f.step}`,
+        tactic: tactic,
+        technique: technique,
+        description: `Model prediction for t+${f.step} corresponding to ${technique}`,
+        evidence: `Probability: ${Math.round((f.probability || 0) * 100)}% based on temporal pattern`,
+        status: f.step === 0 ? 'current' : 'forecast',
+        confidence: Math.round((f.confidence || 0) * 100)
+      });
+    }
   });
 
   // Fill in the rest of the matrix with "not_observed"

@@ -153,11 +153,44 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── On app start: restore dataset from localStorage ──────────────────────
+  // ── On app start: restore dataset from localStorage or bootstrap default ──────
   useEffect(() => {
-    if (datasetId) {
-      fetchAnalysis(datasetId);
-    }
+    const initializeDataset = async () => {
+      try {
+        if (datasetId) {
+          await fetchAnalysis(datasetId);
+        } else {
+          // Check for active dataset in backend
+          const activeRes = await client.get('/api/datasets/active');
+          if (activeRes.data.dataset_id) {
+            localStorage.setItem(LS_DATASET_KEY, activeRes.data.dataset_id);
+            setDatasetId(activeRes.data.dataset_id);
+            await fetchAnalysis(activeRes.data.dataset_id);
+          } else if (activeRes.data.needs_bootstrap) {
+            // Bootstrap default SIH dataset
+            setIsProcessing(true);
+            setProcessingStage('Generating Initial Analysis from SIH Dataset');
+            setProcessingProgress(50);
+            
+            const bootstrapRes = await client.post('/api/datasets/bootstrap');
+            if (bootstrapRes.data.dataset_id) {
+              localStorage.setItem(LS_DATASET_KEY, bootstrapRes.data.dataset_id);
+              setDatasetId(bootstrapRes.data.dataset_id);
+              await fetchAnalysis(bootstrapRes.data.dataset_id);
+            }
+            
+            setProcessingStage('Complete');
+            setProcessingProgress(100);
+            setIsProcessing(false);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to initialize dataset:", err);
+        setIsProcessing(false);
+      }
+    };
+
+    initializeDataset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);   // intentionally only on mount
 
